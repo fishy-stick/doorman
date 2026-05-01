@@ -12,15 +12,14 @@ type Store struct {
 }
 
 type Network struct {
-	ID                     int64     `json:"id" gorm:"primaryKey;autoIncrement"`
-	Name                   string    `json:"name" gorm:"uniqueIndex;not null"`
-	Token                  string    `json:"token" gorm:"not null"`
-	DDNSEnabled            bool      `json:"ddns_enabled" gorm:"default:false"`
-	DDNSType               string    `json:"ddns_type" gorm:"default:''"`
-	DDNSUpdateOnChangeOnly bool      `json:"ddns_update_on_change_only" gorm:"default:true"`
-	DDNSConfig             string    `json:"ddns_config" gorm:"default:'{}'"`
-	CreatedAt              time.Time `json:"created_at"`
-	UpdatedAt              time.Time `json:"updated_at"`
+	ID          int64     `json:"id" gorm:"primaryKey;autoIncrement"`
+	Name        string    `json:"name" gorm:"uniqueIndex;not null"`
+	Token       string    `json:"token" gorm:"not null"`
+	DDNSEnabled bool      `json:"ddns_enabled" gorm:"default:false"`
+	DDNSType    string    `json:"ddns_type" gorm:"default:''"`
+	DDNSConfig  string    `json:"ddns_config" gorm:"default:'{}'"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type Knock struct {
