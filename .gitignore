@@ -1,0 +1,54 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Database
+*.db
+
+# Go
+vendor/
+go.work
+go.work.sum
+
+# Test
+*.test
+*.out
+coverage.txt
+
+# Config (contains secrets)
+config.yaml
+
+# Frontend
+web/node_modules/
+web/dist/
+web/.env
+
+# IDE - Goland / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDE - VS Code
+.vscode/
+
+# OS - macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# OS - Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# OS - Linux
+*~
+.directory
