@@ -24,6 +24,7 @@ config.yaml
 # Frontend
 web/node_modules/
 web/dist/
+internal/webui/dist/
 web/.env
 
 # IDE - Goland / JetBrains

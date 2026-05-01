@@ -19,16 +19,29 @@
 ## 快速开始
 
 ```bash
-# 构建前端
-cd web && pnpm install && pnpm build && cd ..
-
-# 构建（前端产物通过 embed 内嵌到二进制）
-go build -o doorman ./cmd/doorman/
+# 安装前端依赖
+cd web && pnpm install && cd ..
 
 cp config.example.yaml config.yaml
 # 编辑 config.yaml 配置端口、数据库路径、管理员密码
+
+# 开发：后端 API
+go run ./cmd/doorman/
+
+# 开发：前端 dev server（反代 /admin/api 和 /knock 到后端）
+cd web && pnpm dev && cd ..
+# 访问 http://127.0.0.1:5173/admin/
+```
+
+```bash
+# 生产构建：前端产物输出到 internal/webui/dist
+cd web && pnpm run build:embed && cd ..
+
+# 生产构建：仅正式打包时嵌入前端
+go build -tags embedweb -o doorman ./cmd/doorman/
+
 ./doorman
-# 访问 http://localhost:8080/admin 进行管理
+# 访问 http://localhost:8080/admin
 ```
 
 ## 配置

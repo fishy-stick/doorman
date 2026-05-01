@@ -13,6 +13,8 @@ import (
 	"doorman/internal/config"
 	"doorman/internal/handler"
 	"doorman/internal/store"
+	"doorman/internal/webui"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -61,7 +63,7 @@ func main() {
 	}
 
 	adminGroup := r.Group("/admin")
-	handler.RegisterWebRoutes(adminGroup, webFS)
+	webui.Register(adminGroup)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Port,
