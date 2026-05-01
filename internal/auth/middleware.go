@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	sessionCookieName = "doorman_session"
-	sessionDuration   = 24 * time.Hour
+	SessionCookieName = "doorman_session"
+	SessionDuration   = 24 * time.Hour
 )
 
 type contextKey string
@@ -36,7 +36,7 @@ func (sm *SessionManager) Create() (string, error) {
 		return "", err
 	}
 	token := hex.EncodeToString(bytes)
-	sm.sessions[token] = time.Now().Add(sessionDuration)
+	sm.sessions[token] = time.Now().Add(SessionDuration)
 	return token, nil
 }
 
@@ -98,7 +98,7 @@ func KnockAuth(s *store.Store) gin.HandlerFunc {
 
 func AdminAuth(sm *SessionManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		cookie, err := c.Cookie(sessionCookieName)
+		cookie, err := c.Cookie(SessionCookieName)
 		if err != nil || cookie == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
 			c.Abort()
@@ -136,16 +136,16 @@ func Login(c *gin.Context, adminPassword string, sm *SessionManager) {
 		return
 	}
 
-	c.SetCookie(sessionCookieName, token, int(sessionDuration.Seconds()), "/", "", false, true)
+	c.SetCookie(SessionCookieName, token, int(SessionDuration.Seconds()), "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "login successful"})
 }
 
 func Logout(c *gin.Context, sm *SessionManager) {
-	cookie, err := c.Cookie(sessionCookieName)
+	cookie, err := c.Cookie(SessionCookieName)
 	if err == nil && cookie != "" {
 		sm.Delete(cookie)
 	}
 
-	c.SetCookie(sessionCookieName, "", -1, "/", "", false, true)
+	c.SetCookie(SessionCookieName, "", -1, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
