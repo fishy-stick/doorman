@@ -47,7 +47,7 @@ cp config.example.yaml config.yaml
 通过标准 HTTP 请求调用，可结合 crontab 或 systemd timer 定时执行：
 
 ```bash
-curl -H "Authorization: Bearer your-token" http://your-server:8080/checkin
+curl -H "Authorization: Bearer your-token" http://your-server:8080/knock
 ```
 
 ## 部署
