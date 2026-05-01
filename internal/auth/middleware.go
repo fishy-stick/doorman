@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"doorman/internal/store"
@@ -20,10 +21,13 @@ type contextKey string
 
 const NetworkContextKey contextKey = "network"
 
+// SessionManager keeps short-lived admin sessions in memory.
 type SessionManager struct {
+	mu       sync.RWMutex
 	sessions map[string]time.Time
 }
 
+// NewSessionManager creates an empty in-memory session store.
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
 		sessions: make(map[string]time.Time),
@@ -36,26 +40,42 @@ func (sm *SessionManager) Create() (string, error) {
 		return "", err
 	}
 	token := hex.EncodeToString(bytes)
+	sm.mu.Lock()
 	sm.sessions[token] = time.Now().Add(SessionDuration)
+	sm.mu.Unlock()
 	return token, nil
 }
 
 func (sm *SessionManager) Validate(token string) bool {
+	sm.mu.RLock()
 	expiry, exists := sm.sessions[token]
+	sm.mu.RUnlock()
 	if !exists {
 		return false
 	}
 	if time.Now().After(expiry) {
+		sm.mu.Lock()
 		delete(sm.sessions, token)
+		sm.mu.Unlock()
 		return false
 	}
 	return true
 }
 
 func (sm *SessionManager) Delete(token string) {
+	sm.mu.Lock()
 	delete(sm.sessions, token)
+	sm.mu.Unlock()
 }
 
+// Reset invalidates every active admin session.
+func (sm *SessionManager) Reset() {
+	sm.mu.Lock()
+	sm.sessions = make(map[string]time.Time)
+	sm.mu.Unlock()
+}
+
+// KnockAuth resolves the bearer token to a managed network.
 func KnockAuth(s *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -96,6 +116,7 @@ func KnockAuth(s *store.Store) gin.HandlerFunc {
 	}
 }
 
+// AdminAuth verifies the admin session cookie before protected requests.
 func AdminAuth(sm *SessionManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cookie, err := c.Cookie(SessionCookieName)
@@ -113,39 +134,4 @@ func AdminAuth(sm *SessionManager) gin.HandlerFunc {
 
 		c.Next()
 	}
-}
-
-func Login(c *gin.Context, adminPassword string, sm *SessionManager) {
-	var req struct {
-		Password string `json:"password"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
-	if req.Password != adminPassword {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid password"})
-		return
-	}
-
-	token, err := sm.Create()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
-		return
-	}
-
-	c.SetCookie(SessionCookieName, token, int(SessionDuration.Seconds()), "/", "", false, true)
-	c.JSON(http.StatusOK, gin.H{"message": "login successful"})
-}
-
-func Logout(c *gin.Context, sm *SessionManager) {
-	cookie, err := c.Cookie(SessionCookieName)
-	if err == nil && cookie != "" {
-		sm.Delete(cookie)
-	}
-
-	c.SetCookie(SessionCookieName, "", -1, "/", "", false, true)
-	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }

@@ -11,12 +11,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// KnockHandler records observed client IPs and triggers DDNS updates.
 type KnockHandler struct {
-	store *store.Store
+	store      *store.Store
+	trustProxy bool
 }
 
-func NewKnockHandler(s *store.Store) *KnockHandler {
-	return &KnockHandler{store: s}
+// NewKnockHandler builds the /knock handler with the effective proxy policy.
+func NewKnockHandler(s *store.Store, trustProxy bool) *KnockHandler {
+	return &KnockHandler{store: s, trustProxy: trustProxy}
 }
 
 func (h *KnockHandler) Handle(c *gin.Context) {
@@ -25,13 +28,19 @@ func (h *KnockHandler) Handle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "network not found in context"})
 		return
 	}
-	network := networkVal.(*store.Network)
+	network, ok := networkVal.(*store.Network)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid network in context"})
+		return
+	}
 
-	clientIP := ip.ExtractIP(c, true)
+	clientIP := ip.ExtractIP(c, h.trustProxy)
 
-	previousIP, err := h.store.GetPreviousIP(network.ID)
+	// PreviousIP on a new knock should point to the last observed IP, not the
+	// previous knock's PreviousIP chain.
+	previousIP, err := h.store.GetLatestIP(network.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get previous IP"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get latest IP"})
 		return
 	}
 

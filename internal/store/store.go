@@ -3,14 +3,22 @@ package store
 import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	_ "modernc.org/sqlite"
 )
 
+// Store wraps the application's persistent state.
 type Store struct {
 	db *gorm.DB
 }
 
+// New opens the SQLite database and runs schema migrations.
 func New(dbPath string) (*Store, error) {
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	// Use the pure-Go modernc SQLite driver so the service and tests do not
+	// depend on a local CGO toolchain.
+	db, err := gorm.Open(sqlite.New(sqlite.Config{
+		DriverName: "sqlite",
+		DSN:        dbPath,
+	}), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}

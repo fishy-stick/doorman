@@ -7,13 +7,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config holds the runtime configuration loaded from YAML.
 type Config struct {
 	Server ServerConfig `yaml:"server"`
 }
 
+// ServerConfig contains the HTTP and persistence settings for the server.
 type ServerConfig struct {
 	Port       string `yaml:"port"`
-	TrustProxy bool   `yaml:"trust_proxy"`
+	TrustProxy *bool  `yaml:"trust_proxy"`
 	DB         string `yaml:"db"`
 }
 
@@ -37,6 +39,11 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// TrustProxyEnabled returns the effective proxy-trust setting after defaults.
+func (c ServerConfig) TrustProxyEnabled() bool {
+	return c.TrustProxy == nil || *c.TrustProxy
+}
+
 func (c *Config) setDefaults() {
 	if c.Server.Port == "" {
 		c.Server.Port = ":8080"
@@ -44,8 +51,8 @@ func (c *Config) setDefaults() {
 		c.Server.Port = ":" + c.Server.Port
 	}
 
-	if !c.Server.TrustProxy {
-		c.Server.TrustProxy = true
+	if c.Server.TrustProxy == nil {
+		c.Server.TrustProxy = boolPtr(true)
 	}
 
 	if c.Server.DB == "" {
@@ -55,4 +62,8 @@ func (c *Config) setDefaults() {
 
 func (c *Config) validate() error {
 	return nil
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }

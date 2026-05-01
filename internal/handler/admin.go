@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -15,6 +16,7 @@ type AdminHandler struct {
 	sm    *auth.SessionManager
 }
 
+// NewAdminHandler builds the admin API handler set.
 func NewAdminHandler(s *store.Store, sm *auth.SessionManager) *AdminHandler {
 	return &AdminHandler{store: s, sm: sm}
 }
@@ -87,6 +89,7 @@ func (h *AdminHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	h.sm.Reset()
 	c.JSON(http.StatusOK, gin.H{"message": "password updated"})
 }
 
@@ -155,9 +158,10 @@ func (h *AdminHandler) CreateNetwork(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
+	network.ID = 0
 
 	if err := h.store.CreateNetwork(&network); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create network"})
+		h.respondStoreError(c, err, "failed to create network")
 		return
 	}
 
@@ -190,7 +194,7 @@ func (h *AdminHandler) UpdateNetwork(c *gin.Context) {
 
 	network.ID = id
 	if err := h.store.UpdateNetwork(&network); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update network"})
+		h.respondStoreError(c, err, "failed to update network")
 		return
 	}
 
@@ -252,4 +256,15 @@ func (h *AdminHandler) ListKnocks(c *gin.Context) {
 		"size":    size,
 		"records": knocks,
 	})
+}
+
+func (h *AdminHandler) respondStoreError(c *gin.Context, err error, defaultMessage string) {
+	switch {
+	case errors.Is(err, store.ErrInvalidNetwork):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case errors.Is(err, store.ErrNetworkNameConflict), errors.Is(err, store.ErrNetworkTokenConflict):
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultMessage})
+	}
 }

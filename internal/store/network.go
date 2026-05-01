@@ -1,38 +1,50 @@
 package store
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
 
+var (
+	ErrInvalidNetwork       = errors.New("invalid network")
+	ErrNetworkNameConflict  = errors.New("network name already exists")
+	ErrNetworkTokenConflict = errors.New("network token already exists")
+)
+
+// Network represents a managed internal network and its DDNS settings.
 type Network struct {
 	ID          int64     `json:"id" gorm:"primaryKey;autoIncrement"`
 	Name        string    `json:"name" gorm:"uniqueIndex;not null"`
-	Token       string    `json:"token" gorm:"not null"`
-	DDNSEnabled bool      `json:"ddns_enabled" gorm:"default:false"`
-	DDNSType    string    `json:"ddns_type" gorm:"default:''"`
-	DDNSConfig  string    `json:"ddns_config" gorm:"default:'{}'"`
+	Token       string    `json:"token" gorm:"uniqueIndex;not null"`
+	DDNSEnabled bool      `json:"ddns_enabled" gorm:"column:ddns_enabled;default:false"`
+	DDNSType    string    `json:"ddns_type" gorm:"column:ddns_type;default:''"`
+	DDNSConfig  string    `json:"ddns_config" gorm:"column:ddns_config;default:'{}'"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// NetworkSummary is the admin list projection with the latest knock snapshot.
 type NetworkSummary struct {
-	ID          int64      `json:"id"`
-	Name        string     `json:"name"`
-	DDNSEnabled bool       `json:"ddns_enabled"`
-	DDNSType    string     `json:"ddns_type"`
-	CurrentIP   *string    `json:"current_ip"`
-	PreviousIP  *string    `json:"previous_ip"`
-	LastKnock   *time.Time `json:"last_knock"`
-	DDNSStatus  *string    `json:"ddns_status"`
+	ID          int64      `json:"id" gorm:"column:id"`
+	Name        string     `json:"name" gorm:"column:name"`
+	DDNSEnabled bool       `json:"ddns_enabled" gorm:"column:ddns_enabled"`
+	DDNSType    string     `json:"ddns_type" gorm:"column:ddns_type"`
+	CurrentIP   *string    `json:"current_ip" gorm:"column:current_ip"`
+	PreviousIP  *string    `json:"previous_ip" gorm:"column:previous_ip"`
+	LastKnock   *time.Time `json:"last_knock" gorm:"column:last_knock"`
+	DDNSStatus  *string    `json:"ddns_status" gorm:"column:ddns_status"`
 }
 
 func (s *Store) ListNetworks() ([]NetworkSummary, error) {
 	var networks []NetworkSummary
 
 	subQuery := s.db.Model(&Knock{}).
-		Select("network_id, ip, previous_ip, created_at, ddns_status, ROW_NUMBER() OVER (PARTITION BY network_id ORDER BY created_at DESC) as rn").
+		Select("network_id, ip, previous_ip, created_at, ddns_status, id, ROW_NUMBER() OVER (PARTITION BY network_id ORDER BY created_at DESC, id DESC) as rn").
 		Table("knocks")
 
 	err := s.db.Model(&Network{}).
@@ -67,11 +79,34 @@ func (s *Store) GetNetworkByToken(token string) (*Network, error) {
 }
 
 func (s *Store) CreateNetwork(n *Network) error {
+	normalizeNetwork(n)
+	if err := validateNetwork(n); err != nil {
+		return err
+	}
+	if err := s.ensureNetworkUniqueFields(n); err != nil {
+		return err
+	}
 	return s.db.Create(n).Error
 }
 
 func (s *Store) UpdateNetwork(n *Network) error {
-	return s.db.Save(n).Error
+	normalizeNetwork(n)
+	if err := validateNetwork(n); err != nil {
+		return err
+	}
+	if err := s.ensureNetworkUniqueFields(n); err != nil {
+		return err
+	}
+
+	return s.db.Model(&Network{}).
+		Where("id = ?", n.ID).
+		Updates(map[string]any{
+			"name":         n.Name,
+			"token":        n.Token,
+			"ddns_enabled": n.DDNSEnabled,
+			"ddns_type":    n.DDNSType,
+			"ddns_config":  n.DDNSConfig,
+		}).Error
 }
 
 func (s *Store) DeleteNetwork(id int64) error {
@@ -81,4 +116,71 @@ func (s *Store) DeleteNetwork(id int64) error {
 		}
 		return tx.Delete(&Network{}, id).Error
 	})
+}
+
+func normalizeNetwork(n *Network) {
+	if n == nil {
+		return
+	}
+
+	n.Name = strings.TrimSpace(n.Name)
+	n.Token = strings.TrimSpace(n.Token)
+	n.DDNSType = strings.TrimSpace(n.DDNSType)
+	if strings.TrimSpace(n.DDNSConfig) == "" {
+		n.DDNSConfig = "{}"
+	}
+}
+
+func validateNetwork(n *Network) error {
+	if n == nil {
+		return fmt.Errorf("%w: network is required", ErrInvalidNetwork)
+	}
+	if n.Name == "" {
+		return fmt.Errorf("%w: name is required", ErrInvalidNetwork)
+	}
+	if n.Token == "" {
+		return fmt.Errorf("%w: token is required", ErrInvalidNetwork)
+	}
+	if !json.Valid([]byte(n.DDNSConfig)) {
+		return fmt.Errorf("%w: ddns_config must be valid JSON", ErrInvalidNetwork)
+	}
+	if n.DDNSEnabled && n.DDNSType == "" {
+		return fmt.Errorf("%w: ddns_type is required when ddns is enabled", ErrInvalidNetwork)
+	}
+
+	return nil
+}
+
+func (s *Store) ensureNetworkUniqueFields(n *Network) error {
+	nameExists, err := s.networkFieldExists("name", n.Name, n.ID)
+	if err != nil {
+		return err
+	}
+	if nameExists {
+		return ErrNetworkNameConflict
+	}
+
+	tokenExists, err := s.networkFieldExists("token", n.Token, n.ID)
+	if err != nil {
+		return err
+	}
+	if tokenExists {
+		return ErrNetworkTokenConflict
+	}
+
+	return nil
+}
+
+func (s *Store) networkFieldExists(field, value string, excludeID int64) (bool, error) {
+	query := s.db.Model(&Network{}).Where(field+" = ?", value)
+	if excludeID != 0 {
+		query = query.Where("id <> ?", excludeID)
+	}
+
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
