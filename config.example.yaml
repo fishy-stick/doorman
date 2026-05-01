@@ -2,4 +2,3 @@ server:
   port: 8080
   trust_proxy: true
   db: "doorman.db"
-  admin_password: "your-admin-password"

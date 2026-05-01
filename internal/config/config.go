@@ -12,10 +12,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port          string `yaml:"port"`
-	TrustProxy    bool   `yaml:"trust_proxy"`
-	DB            string `yaml:"db"`
-	AdminPassword string `yaml:"admin_password"`
+	Port       string `yaml:"port"`
+	TrustProxy bool   `yaml:"trust_proxy"`
+	DB         string `yaml:"db"`
 }
 
 func Load(path string) (*Config, error) {
@@ -55,8 +54,5 @@ func (c *Config) setDefaults() {
 }
 
 func (c *Config) validate() error {
-	if c.Server.AdminPassword == "" {
-		return fmt.Errorf("server.admin_password is required")
-	}
 	return nil
 }

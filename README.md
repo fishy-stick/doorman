@@ -40,7 +40,8 @@ cp config.example.yaml config.yaml
 | `server.port` | 监听端口，默认 `:8080` |
 | `server.trust_proxy` | 是否信任代理头，默认 `true` |
 | `server.db` | SQLite 数据库文件路径，默认 `doorman.db` |
-| `server.admin_password` | 管理员登录密码 |
+
+首次启动时自动生成随机管理员密码，请查看日志输出。
 
 ## 客户端调用
 

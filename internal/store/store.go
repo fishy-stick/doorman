@@ -15,7 +15,7 @@ func New(dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Network{}, &Knock{}); err != nil {
+	if err := db.AutoMigrate(&Network{}, &Knock{}, &Admin{}); err != nil {
 		return nil, err
 	}
 
