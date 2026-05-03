@@ -10,7 +10,6 @@
 - 从请求来源自动获取公网 IP（支持 X-Forwarded-For、X-Real-IP、RemoteAddr）
 - 基于 Bearer Token 的请求认证
 - IP 变化检测与历史记录
-- 可配置的 DDNS 更新策略（仅 IP 变化时更新 / 每次都更新）
 - DDNS Provider 可扩展（当前支持 DNSPod）
 - 自动生成 curl / crontab 调用命令
 - SQLite 持久化，重启不丢失数据
@@ -23,7 +22,7 @@
 cd web && pnpm install && cd ..
 
 cp config.example.yaml config.yaml
-# 编辑 config.yaml 配置端口、数据库路径、管理员密码
+# 编辑 config.yaml 配置端口、数据库路径
 
 # 开发：后端 API
 go run ./cmd/doorman/
@@ -54,7 +53,7 @@ go build -tags embedweb -o doorman ./cmd/doorman/
 | `server.trust_proxy` | 是否信任代理头，默认 `true` |
 | `server.db` | SQLite 数据库文件路径，默认 `doorman.db` |
 
-首次启动时自动生成随机管理员密码，请查看日志输出。
+首次启动时自动生成随机管理员密码，请查看日志输出，并在首次登录后及时修改。
 
 ## 客户端调用
 
