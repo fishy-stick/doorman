@@ -44,6 +44,55 @@ func TestCreateNetworkRejectsDuplicateToken(t *testing.T) {
 	}
 }
 
+func TestCreateNetworkRejectsUnsupportedDDNSProvider(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+
+	err := s.CreateNetwork(&Network{
+		Name:        "home",
+		Token:       "token-1",
+		DDNSType:    "cloudflare",
+		DDNSConfig:  "{}",
+		DDNSEnabled: false,
+	})
+	if !errors.Is(err, ErrInvalidNetwork) {
+		t.Fatalf("CreateNetwork() error = %v, want ErrInvalidNetwork", err)
+	}
+}
+
+func TestCreateNetworkRejectsNonObjectDDNSConfig(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+
+	err := s.CreateNetwork(&Network{
+		Name:       "home",
+		Token:      "token-1",
+		DDNSConfig: `[]`,
+	})
+	if !errors.Is(err, ErrInvalidNetwork) {
+		t.Fatalf("CreateNetwork() error = %v, want ErrInvalidNetwork", err)
+	}
+}
+
+func TestCreateNetworkRejectsInvalidDNSPodConfig(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+
+	err := s.CreateNetwork(&Network{
+		Name:        "home",
+		Token:       "token-1",
+		DDNSEnabled: true,
+		DDNSType:    "dnspod",
+		DDNSConfig:  `{"domain":"example.com","record":"","id":"abc","token":"def"}`,
+	})
+	if !errors.Is(err, ErrInvalidNetwork) {
+		t.Fatalf("CreateNetwork() error = %v, want ErrInvalidNetwork", err)
+	}
+}
+
 func TestUpdateNetworkPreservesCreatedAt(t *testing.T) {
 	t.Parallel()
 
@@ -65,7 +114,7 @@ func TestUpdateNetworkPreservesCreatedAt(t *testing.T) {
 		Token:       "token-2",
 		DDNSEnabled: true,
 		DDNSType:    "dnspod",
-		DDNSConfig:  `{"domain":"example.com"}`,
+		DDNSConfig:  `{"domain":"example.com","record":"home","id":"abc","token":"def"}`,
 	}
 	if err := s.UpdateNetwork(update); err != nil {
 		t.Fatalf("UpdateNetwork() error = %v", err)
@@ -86,5 +135,31 @@ func TestUpdateNetworkPreservesCreatedAt(t *testing.T) {
 	}
 	if got.Token != "token-2" {
 		t.Fatalf("Token = %q, want %q", got.Token, "token-2")
+	}
+}
+
+func TestUpdateNetworkRejectsUnsupportedDDNSProvider(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+
+	network := &Network{
+		Name:       "home",
+		Token:      "token-1",
+		DDNSConfig: "{}",
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork() error = %v", err)
+	}
+
+	err := s.UpdateNetwork(&Network{
+		ID:         network.ID,
+		Name:       network.Name,
+		Token:      network.Token,
+		DDNSType:   "cloudflare",
+		DDNSConfig: "{}",
+	})
+	if !errors.Is(err, ErrInvalidNetwork) {
+		t.Fatalf("UpdateNetwork() error = %v, want ErrInvalidNetwork", err)
 	}
 }

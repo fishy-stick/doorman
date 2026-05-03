@@ -127,7 +127,7 @@ func AdminAuth(sm *SessionManager) gin.HandlerFunc {
 		}
 
 		if !sm.Validate(cookie) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "session expired"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
 			c.Abort()
 			return
 		}

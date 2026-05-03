@@ -1,7 +1,6 @@
 package store
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -141,11 +140,8 @@ func validateNetwork(n *Network) error {
 	if n.Token == "" {
 		return fmt.Errorf("%w: token is required", ErrInvalidNetwork)
 	}
-	if !json.Valid([]byte(n.DDNSConfig)) {
-		return fmt.Errorf("%w: ddns_config must be valid JSON", ErrInvalidNetwork)
-	}
-	if n.DDNSEnabled && n.DDNSType == "" {
-		return fmt.Errorf("%w: ddns_type is required when ddns is enabled", ErrInvalidNetwork)
+	if err := validateDDNSSettings(n.DDNSEnabled, n.DDNSType, n.DDNSConfig); err != nil {
+		return err
 	}
 
 	return nil

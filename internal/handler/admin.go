@@ -62,6 +62,10 @@ func (h *AdminHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
 
+func (h *AdminHandler) Session(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"authenticated": true})
+}
+
 func (h *AdminHandler) ChangePassword(c *gin.Context) {
 	var req struct {
 		OldPassword string `json:"old_password" binding:"required"`

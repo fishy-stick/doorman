@@ -52,6 +52,7 @@ func main() {
 		protected := admin.Group("")
 		protected.Use(auth.AdminAuth(sm))
 		{
+			protected.GET("/session", adminHandler.Session)
 			protected.PUT("/password", adminHandler.ChangePassword)
 			protected.GET("/networks", adminHandler.ListNetworks)
 			protected.GET("/networks/:id", adminHandler.GetNetwork)

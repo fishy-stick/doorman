@@ -10,6 +10,54 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestSessionReturnsAuthenticatedForValidSession(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	sm := auth.NewSessionManager()
+	token, err := sm.Create()
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	h := NewAdminHandler(s, sm)
+	router := gin.New()
+	protected := router.Group("/admin/api")
+	protected.Use(auth.AdminAuth(sm))
+	protected.GET("/session", h.Session)
+
+	resp := performRequest(t, router, http.MethodGet, "/admin/api/session", "", "127.0.0.1:1234", map[string]string{
+		"Cookie": auth.SessionCookieName + "=" + token,
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusOK, resp.Body.String())
+	}
+	if body := resp.Body.String(); body != "{\"authenticated\":true}" {
+		t.Fatalf("body = %s, want %s", body, `{"authenticated":true}`)
+	}
+}
+
+func TestSessionReturnsUnauthorizedWithoutValidSession(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	sm := auth.NewSessionManager()
+
+	h := NewAdminHandler(s, sm)
+	router := gin.New()
+	protected := router.Group("/admin/api")
+	protected.Use(auth.AdminAuth(sm))
+	protected.GET("/session", h.Session)
+
+	resp := performRequest(t, router, http.MethodGet, "/admin/api/session", "", "127.0.0.1:1234", nil)
+	if resp.Code != http.StatusUnauthorized {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusUnauthorized, resp.Body.String())
+	}
+	if body := resp.Body.String(); body != "{\"error\":\"not authenticated\"}" {
+		t.Fatalf("body = %s, want %s", body, `{"error":"not authenticated"}`)
+	}
+}
+
 func TestChangePasswordInvalidatesExistingSessions(t *testing.T) {
 	t.Parallel()
 
@@ -88,5 +136,87 @@ func TestCreateNetworkReturnsConflictForDuplicateToken(t *testing.T) {
 	})
 	if resp.Code != http.StatusConflict {
 		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusConflict, resp.Body.String())
+	}
+}
+
+func TestCreateNetworkReturnsBadRequestForUnsupportedProvider(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.POST("/admin/api/networks", h.CreateNetwork)
+
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","token":"token-1","ddns_type":"cloudflare","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
+		"Content-Type": "application/json",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
+	}
+}
+
+func TestCreateNetworkReturnsBadRequestForInvalidDDNSConfigShape(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.POST("/admin/api/networks", h.CreateNetwork)
+
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","token":"token-1","ddns_config":"[]"}`, "127.0.0.1:1234", map[string]string{
+		"Content-Type": "application/json",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
+	}
+}
+
+func TestUpdateNetworkReturnsBadRequestForUnsupportedProvider(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	network := &store.Network{
+		Name:       "home",
+		Token:      "token-1",
+		DDNSConfig: "{}",
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork(seed) error = %v", err)
+	}
+
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.PUT("/admin/api/networks/:id", h.UpdateNetwork)
+
+	resp := performRequest(t, router, http.MethodPut, "/admin/api/networks/1", `{"name":"home","token":"token-1","ddns_type":"cloudflare","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
+		"Content-Type": "application/json",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
+	}
+}
+
+func TestUpdateNetworkReturnsBadRequestForInvalidDNSPodConfig(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	network := &store.Network{
+		Name:       "home",
+		Token:      "token-1",
+		DDNSConfig: "{}",
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork(seed) error = %v", err)
+	}
+
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.PUT("/admin/api/networks/:id", h.UpdateNetwork)
+
+	resp := performRequest(t, router, http.MethodPut, "/admin/api/networks/1", `{"name":"home","token":"token-1","ddns_enabled":true,"ddns_type":"dnspod","ddns_config":"{\"domain\":\"example.com\",\"record\":\"\",\"id\":\"abc\",\"token\":\"def\"}"}`, "127.0.0.1:1234", map[string]string{
+		"Content-Type": "application/json",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
 	}
 }
