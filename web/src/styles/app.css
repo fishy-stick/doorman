@@ -368,6 +368,12 @@ pre,
   color: var(--color-success);
 }
 
+.form-message-info {
+  border-color: #bfd7fb;
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
 .form-message-warning {
   border-color: #f7d38c;
   background: var(--color-warning-bg);
@@ -440,6 +446,11 @@ pre,
   overflow: hidden;
 }
 
+.command-panel {
+  display: grid;
+  gap: var(--space-5);
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -490,6 +501,69 @@ pre,
   gap: var(--space-2);
 }
 
+.command-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.command-card {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.command-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.command-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.history-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.history-summary strong {
+  font-size: 1.4rem;
+}
+
+.field-inline {
+  align-items: center;
+  grid-template-columns: auto minmax(96px, 120px);
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.history-table {
+  min-width: 1120px;
+}
+
+.history-error,
+.history-agent {
+  max-width: 320px;
+  overflow-wrap: anywhere;
+}
+
 .field-row {
   display: grid;
   grid-template-columns: minmax(140px, 220px) 1fr;
@@ -533,6 +607,10 @@ pre,
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .command-grid {
     grid-template-columns: 1fr;
   }
 
