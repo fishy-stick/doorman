@@ -39,6 +39,13 @@ pre,
   background: var(--color-bg);
 }
 
+.login-screen {
+  background:
+    radial-gradient(circle at top left, rgb(15 118 110 / 0.12), transparent 32%),
+    radial-gradient(circle at bottom right, rgb(23 92 211 / 0.12), transparent 28%),
+    var(--color-bg);
+}
+
 .admin-shell {
   min-height: 100vh;
   background: var(--color-bg);
@@ -161,6 +168,14 @@ pre,
   padding: var(--space-6);
 }
 
+.auth-panel {
+  width: min(460px, 100%);
+}
+
+.auth-header {
+  margin-bottom: var(--space-6);
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -182,6 +197,10 @@ pre,
 
 .button-secondary:hover {
   background: var(--color-surface-muted);
+}
+
+.button-block {
+  width: 100%;
 }
 
 .state {
@@ -276,6 +295,68 @@ pre,
   display: grid;
   gap: var(--space-3);
   margin: 0;
+}
+
+.form-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.field-label {
+  font-weight: 600;
+}
+
+.field-input,
+.field-select,
+.field-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 10px 12px;
+}
+
+.field-input:focus,
+.field-select:focus,
+.field-textarea:focus {
+  outline: 2px solid rgb(15 118 110 / 0.18);
+  outline-offset: 0;
+  border-color: var(--color-primary);
+}
+
+.field-textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.field-help {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+}
+
+.form-message {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+}
+
+.form-message-error {
+  border-color: #fecdca;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.form-message-success {
+  border-color: #b7ebc6;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .field-row {
