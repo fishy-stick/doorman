@@ -54,10 +54,41 @@ func TestCreateNetworkRejectsUnsupportedDDNSProvider(t *testing.T) {
 		Token:       "token-1",
 		DDNSType:    "cloudflare",
 		DDNSConfig:  "{}",
-		DDNSEnabled: false,
+		DDNSEnabled: true,
 	})
 	if !errors.Is(err, ErrInvalidNetwork) {
 		t.Fatalf("CreateNetwork() error = %v, want ErrInvalidNetwork", err)
+	}
+}
+
+func TestCreateNetworkClearsDisabledDDNSSettings(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+
+	network := &Network{
+		Name:        "home",
+		Token:       "token-1",
+		DDNSEnabled: false,
+		DDNSType:    "dnspod",
+		DDNSConfig:  `{"domain":"","record":"","id":"","token":""}`,
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork() error = %v", err)
+	}
+
+	got, err := s.GetNetwork(network.ID)
+	if err != nil {
+		t.Fatalf("GetNetwork() error = %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetNetwork() = nil, want network")
+	}
+	if got.DDNSType != "" {
+		t.Fatalf("DDNSType = %q, want empty", got.DDNSType)
+	}
+	if got.DDNSConfig != "{}" {
+		t.Fatalf("DDNSConfig = %q, want {}", got.DDNSConfig)
 	}
 }
 
@@ -67,9 +98,11 @@ func TestCreateNetworkRejectsNonObjectDDNSConfig(t *testing.T) {
 	s := newTestStore(t)
 
 	err := s.CreateNetwork(&Network{
-		Name:       "home",
-		Token:      "token-1",
-		DDNSConfig: `[]`,
+		Name:        "home",
+		Token:       "token-1",
+		DDNSEnabled: true,
+		DDNSType:    "dnspod",
+		DDNSConfig:  `[]`,
 	})
 	if !errors.Is(err, ErrInvalidNetwork) {
 		t.Fatalf("CreateNetwork() error = %v, want ErrInvalidNetwork", err)
@@ -153,13 +186,59 @@ func TestUpdateNetworkRejectsUnsupportedDDNSProvider(t *testing.T) {
 	}
 
 	err := s.UpdateNetwork(&Network{
-		ID:         network.ID,
-		Name:       network.Name,
-		Token:      network.Token,
-		DDNSType:   "cloudflare",
-		DDNSConfig: "{}",
+		ID:          network.ID,
+		Name:        network.Name,
+		Token:       network.Token,
+		DDNSEnabled: true,
+		DDNSType:    "cloudflare",
+		DDNSConfig:  "{}",
 	})
 	if !errors.Is(err, ErrInvalidNetwork) {
 		t.Fatalf("UpdateNetwork() error = %v, want ErrInvalidNetwork", err)
+	}
+}
+
+func TestUpdateNetworkClearsDisabledDDNSSettings(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+
+	network := &Network{
+		Name:        "home",
+		Token:       "token-1",
+		DDNSEnabled: true,
+		DDNSType:    "dnspod",
+		DDNSConfig:  `{"domain":"example.com","record":"home","id":"abc","token":"def"}`,
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork() error = %v", err)
+	}
+
+	if err := s.UpdateNetwork(&Network{
+		ID:          network.ID,
+		Name:        network.Name,
+		Token:       network.Token,
+		DDNSEnabled: false,
+		DDNSType:    "dnspod",
+		DDNSConfig:  `{"domain":"","record":"","id":"","token":""}`,
+	}); err != nil {
+		t.Fatalf("UpdateNetwork() error = %v", err)
+	}
+
+	got, err := s.GetNetwork(network.ID)
+	if err != nil {
+		t.Fatalf("GetNetwork() error = %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetNetwork() = nil, want network")
+	}
+	if got.DDNSEnabled {
+		t.Fatal("DDNSEnabled = true, want false")
+	}
+	if got.DDNSType != "" {
+		t.Fatalf("DDNSType = %q, want empty", got.DDNSType)
+	}
+	if got.DDNSConfig != "{}" {
+		t.Fatalf("DDNSConfig = %q, want {}", got.DDNSConfig)
 	}
 }

@@ -217,7 +217,7 @@ func TestCreateNetworkReturnsBadRequestForUnsupportedProvider(t *testing.T) {
 	router := gin.New()
 	router.POST("/admin/api/networks", h.CreateNetwork)
 
-	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","token":"token-1","ddns_type":"cloudflare","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","ddns_enabled":true,"ddns_type":"cloudflare","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
 		"Content-Type": "application/json",
 	})
 	if resp.Code != http.StatusBadRequest {
@@ -233,7 +233,7 @@ func TestCreateNetworkReturnsBadRequestForInvalidDDNSConfigShape(t *testing.T) {
 	router := gin.New()
 	router.POST("/admin/api/networks", h.CreateNetwork)
 
-	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","token":"token-1","ddns_config":"[]"}`, "127.0.0.1:1234", map[string]string{
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","ddns_enabled":true,"ddns_type":"dnspod","ddns_config":"[]"}`, "127.0.0.1:1234", map[string]string{
 		"Content-Type": "application/json",
 	})
 	if resp.Code != http.StatusBadRequest {
@@ -258,7 +258,7 @@ func TestUpdateNetworkReturnsBadRequestForUnsupportedProvider(t *testing.T) {
 	router := gin.New()
 	router.PUT("/admin/api/networks/:id", h.UpdateNetwork)
 
-	resp := performRequest(t, router, http.MethodPut, "/admin/api/networks/1", `{"name":"home","token":"token-1","ddns_type":"cloudflare","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
+	resp := performRequest(t, router, http.MethodPut, "/admin/api/networks/1", `{"name":"home","ddns_enabled":true,"ddns_type":"cloudflare","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
 		"Content-Type": "application/json",
 	})
 	if resp.Code != http.StatusBadRequest {

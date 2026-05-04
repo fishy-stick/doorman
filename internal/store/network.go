@@ -144,6 +144,11 @@ func normalizeNetwork(n *Network) {
 	n.Name = strings.TrimSpace(n.Name)
 	n.Token = strings.TrimSpace(n.Token)
 	n.DDNSType = strings.TrimSpace(n.DDNSType)
+	if !n.DDNSEnabled {
+		n.DDNSType = ""
+		n.DDNSConfig = "{}"
+		return
+	}
 	if strings.TrimSpace(n.DDNSConfig) == "" {
 		n.DDNSConfig = "{}"
 	}

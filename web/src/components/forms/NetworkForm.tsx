@@ -42,7 +42,8 @@ export function NetworkForm({
   const [submitting, setSubmitting] = useState(false)
 
   const compatibilityMode = Boolean(compatibilityReason)
-  const showDNSPodFields = values.ddnsType === 'dnspod'
+  const showDDNSSettings = values.ddnsEnabled
+  const showDNSPodFields = showDDNSSettings && values.ddnsType === 'dnspod'
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -109,7 +110,7 @@ export function NetworkForm({
               setValues((current) => ({
                 ...current,
                 ddnsEnabled: enabled,
-                ddnsType: enabled && current.ddnsType === '' ? 'dnspod' : current.ddnsType,
+                ddnsType: enabled ? (current.ddnsType === '' ? 'dnspod' : current.ddnsType) : '',
               }))
             }}
             disabled={submitting}
@@ -120,24 +121,26 @@ export function NetworkForm({
           </span>
         </label>
 
-        <label className="field">
-          <span className="field-label">Provider</span>
-          <select
-            className="field-select"
-            value={values.ddnsType}
-            onChange={(event) => {
-              const nextType = event.target.value === 'dnspod' ? 'dnspod' : ''
-              setValues((current) => ({ ...current, ddnsType: nextType }))
-            }}
-            disabled={submitting}
-          >
-            <option value="">None</option>
-            <option value="dnspod">DNSPod</option>
-          </select>
-          {errors.ddnsType ? <span className="field-error">{errors.ddnsType}</span> : null}
-        </label>
+        {showDDNSSettings ? (
+          <label className="field">
+            <span className="field-label">Provider</span>
+            <select
+              className="field-select"
+              value={values.ddnsType}
+              onChange={(event) => {
+                const nextType = event.target.value === 'dnspod' ? 'dnspod' : ''
+                setValues((current) => ({ ...current, ddnsType: nextType }))
+              }}
+              disabled={submitting}
+            >
+              <option value="">None</option>
+              <option value="dnspod">DNSPod</option>
+            </select>
+            {errors.ddnsType ? <span className="field-error">{errors.ddnsType}</span> : null}
+          </label>
+        ) : null}
 
-        {compatibilityMode ? (
+        {showDDNSSettings && compatibilityMode ? (
           <div className="form-message form-message-warning">
             <strong>Compatibility mode</strong>
             <p>{compatibilityReason}</p>
@@ -214,7 +217,7 @@ export function NetworkForm({
           </div>
         ) : null}
 
-        {compatibilityMode ? (
+        {showDDNSSettings && compatibilityMode ? (
           <label className="field">
             <span className="field-label">Raw DDNS Config JSON</span>
             <textarea
@@ -246,10 +249,10 @@ export function NetworkForm({
 function buildPayload(values: NetworkFormValues, rawConfig: string, compatibilityMode: boolean): NetworkPayload {
   const ddnsType = values.ddnsType
 
-  if (ddnsType === '') {
+  if (!values.ddnsEnabled || ddnsType === '') {
     return {
       name: values.name.trim(),
-      ddns_enabled: values.ddnsEnabled,
+      ddns_enabled: false,
       ddns_type: '',
       ddns_config: '{}',
     }
@@ -270,7 +273,11 @@ function validateForm(values: NetworkFormValues, rawConfig: string, compatibilit
     errors.name = 'Name is required.'
   }
 
-  if (values.ddnsEnabled && values.ddnsType === '') {
+  if (!values.ddnsEnabled) {
+    return errors
+  }
+
+  if (values.ddnsType === '') {
     errors.ddnsType = 'Choose a DDNS provider when DDNS is enabled.'
   }
 
