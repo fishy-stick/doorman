@@ -209,7 +209,18 @@ func (h *AdminHandler) UpdateNetwork(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, network)
+	updated, err := h.store.GetNetwork(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		return
+	}
+
+	if updated == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "network disappeared after update"})
+		return
+	}
+
+	h.respondNetworkDetail(c, http.StatusOK, updated)
 }
 
 func (h *AdminHandler) RegenerateNetworkToken(c *gin.Context) {

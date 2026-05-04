@@ -315,14 +315,15 @@ func TestUpdateNetworkPreservesToken(t *testing.T) {
 		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusOK, resp.Body.String())
 	}
 
-	var body struct {
-		Token string `json:"token"`
-	}
+	var body networkDetailResponse
 	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
 		t.Fatalf("failed to decode response body: %v", err)
 	}
 	if body.Token != "token-1" {
 		t.Fatalf("response token = %q, want %q", body.Token, "token-1")
+	}
+	if body.Commands.Curl == "" || body.Commands.Crontab == "" {
+		t.Fatalf("commands = %+v, want generated commands", body.Commands)
 	}
 
 	got, err := s.GetNetwork(network.ID)
