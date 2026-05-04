@@ -55,7 +55,7 @@ func (s *Store) ListKnocks(networkID int64, page, size int) ([]Knock, int, error
 		return nil, 0, err
 	}
 
-	var knocks []Knock
+	knocks := make([]Knock, 0)
 	offset := (page - 1) * size
 	if err := s.db.Where("network_id = ?", networkID).
 		Order("created_at DESC").

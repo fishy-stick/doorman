@@ -56,8 +56,8 @@ export type KnockListResponse = {
 }
 
 export async function listNetworks(): Promise<NetworkSummary[]> {
-  const response = await apiRequest<{ networks: NetworkSummary[] }>('/admin/api/networks')
-  return response.networks
+  const response = await apiRequest<{ networks?: NetworkSummary[] | null }>('/admin/api/networks')
+  return Array.isArray(response.networks) ? response.networks : []
 }
 
 export function getNetwork(id: string | number): Promise<NetworkDetail> {
@@ -90,5 +90,13 @@ export function listKnocks(id: string | number, page: number, size: number): Pro
     size: String(size),
   })
 
-  return apiRequest<KnockListResponse>(`/admin/api/networks/${id}/knocks?${params.toString()}`)
+  return apiRequest<{
+    total: number
+    page: number
+    size: number
+    records?: KnockRecord[] | null
+  }>(`/admin/api/networks/${id}/knocks?${params.toString()}`).then((response) => ({
+    ...response,
+    records: Array.isArray(response.records) ? response.records : [],
+  }))
 }

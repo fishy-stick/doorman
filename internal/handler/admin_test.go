@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -9,6 +10,60 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func TestListNetworksReturnsEmptyArray(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.GET("/admin/api/networks", h.ListNetworks)
+
+	resp := performRequest(t, router, http.MethodGet, "/admin/api/networks", "", "127.0.0.1:1234", nil)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusOK, resp.Body.String())
+	}
+
+	var body struct {
+		Networks []store.NetworkSummary `json:"networks"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	if body.Networks == nil {
+		t.Fatal("networks = nil, want empty array")
+	}
+	if len(body.Networks) != 0 {
+		t.Fatalf("len(networks) = %d, want 0", len(body.Networks))
+	}
+}
+
+func TestListKnocksReturnsEmptyRecordsArray(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.GET("/admin/api/networks/:id/knocks", h.ListKnocks)
+
+	resp := performRequest(t, router, http.MethodGet, "/admin/api/networks/1/knocks", "", "127.0.0.1:1234", nil)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusOK, resp.Body.String())
+	}
+
+	var body struct {
+		Records []store.Knock `json:"records"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	if body.Records == nil {
+		t.Fatal("records = nil, want empty array")
+	}
+	if len(body.Records) != 0 {
+		t.Fatalf("len(records) = %d, want 0", len(body.Records))
+	}
+}
 
 func TestSessionReturnsAuthenticatedForValidSession(t *testing.T) {
 	t.Parallel()

@@ -40,7 +40,7 @@ type NetworkSummary struct {
 }
 
 func (s *Store) ListNetworks() ([]NetworkSummary, error) {
-	var networks []NetworkSummary
+	networks := make([]NetworkSummary, 0)
 
 	subQuery := s.db.Model(&Knock{}).
 		Select("network_id, ip, previous_ip, created_at, ddns_status, id, ROW_NUMBER() OVER (PARTITION BY network_id ORDER BY created_at DESC, id DESC) as rn").
