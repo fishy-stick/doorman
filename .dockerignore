@@ -1,0 +1,16 @@
+.git
+.agents
+.codex
+.idea
+
+config.yaml
+*.db
+doorman
+doorman.exe
+
+web/node_modules
+web/.pnpm-store
+web/dist
+internal/webui/dist
+
+coverage.out
