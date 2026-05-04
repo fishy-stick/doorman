@@ -63,8 +63,7 @@ func main() {
 		}
 	}
 
-	adminGroup := r.Group("/admin")
-	webui.Register(adminGroup)
+	webui.Register(r)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Port,

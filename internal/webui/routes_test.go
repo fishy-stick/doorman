@@ -23,7 +23,11 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 
 	router := gin.New()
-	registerRoutes(router.Group("/admin"), fs.FS(webFS))
+	adminAPI := router.Group("/admin/api")
+	adminAPI.GET("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	})
+	registerRoutes(router, fs.FS(webFS))
 
 	tests := []struct {
 		name       string
@@ -70,6 +74,12 @@ func TestRegisterRoutes(t *testing.T) {
 			name:       "api path is not swallowed by spa",
 			path:       "/admin/api/missing",
 			statusCode: http.StatusNotFound,
+		},
+		{
+			name:       "registered api path still works",
+			path:       "/admin/api/ping",
+			statusCode: http.StatusOK,
+			body:       "pong",
 		},
 	}
 

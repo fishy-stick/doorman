@@ -91,7 +91,62 @@ export function NetworksPage() {
       ) : null}
 
       {!loading && !message && networks.length > 0 ? (
-        <section className="page-panel table-card">
+        <>
+          <section className="network-mobile-list">
+            {networks.map((network) => (
+              <article className="page-panel network-card" key={network.id}>
+                <div className="network-card-header">
+                  <div>
+                    <Link className="table-link" to={`/admin/networks/${network.id}`}>
+                      {network.name}
+                    </Link>
+                    <p>{formatDate(network.last_knock)}</p>
+                  </div>
+                  <DdnsStatusBadge status={network.ddns_status} />
+                </div>
+
+                <div className="network-card-grid">
+                  <div>
+                    <span className="meta-label">DDNS</span>
+                    <Badge tone={network.ddns_enabled ? 'success' : 'neutral'}>
+                      {network.ddns_enabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="meta-label">Provider</span>
+                    <span>{network.ddns_type || 'None'}</span>
+                  </div>
+                  <div>
+                    <span className="meta-label">Current IP</span>
+                    <span className="mono">{network.current_ip ?? 'Unknown'}</span>
+                  </div>
+                  <div>
+                    <span className="meta-label">Previous IP</span>
+                    <span className="mono">{network.previous_ip ?? 'None'}</span>
+                  </div>
+                </div>
+
+                <div className="inline-actions">
+                  <Link className="button button-secondary" to={`/admin/networks/${network.id}`}>
+                    Detail
+                  </Link>
+                  <Link className="button button-secondary" to={`/admin/networks/${network.id}/edit`}>
+                    Edit
+                  </Link>
+                  <button
+                    className="button button-secondary button-danger"
+                    type="button"
+                    disabled={deletingId === network.id}
+                    onClick={() => handleDelete(network)}
+                  >
+                    {deletingId === network.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </section>
+
+          <section className="page-panel table-card desktop-network-table">
           <div className="table-wrap">
             <table className="data-table">
               <thead>
@@ -149,7 +204,8 @@ export function NetworksPage() {
               </tbody>
             </table>
           </div>
-        </section>
+          </section>
+        </>
       ) : null}
     </section>
   )

@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Register(r *gin.RouterGroup) {
+func Register(r *gin.Engine) {
 	webFS, ok := assetFS()
 	if !ok {
 		return
@@ -19,7 +19,7 @@ func Register(r *gin.RouterGroup) {
 	registerRoutes(r, webFS)
 }
 
-func registerRoutes(r *gin.RouterGroup, webFS fs.FS) {
+func registerRoutes(r *gin.Engine, webFS fs.FS) {
 	indexHTML, err := fs.ReadFile(webFS, "index.html")
 	if err != nil {
 		panic(fmt.Errorf("read embedded index.html: %w", err))
@@ -31,9 +31,9 @@ func registerRoutes(r *gin.RouterGroup, webFS fs.FS) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	}
 
-	r.GET("", serveIndex)
-	r.GET("/*path", func(c *gin.Context) {
-		relPath := strings.TrimPrefix(c.Param("path"), "/")
+	handleAdminPath := func(c *gin.Context) {
+		relPath := strings.TrimPrefix(c.Request.URL.Path, "/admin")
+		relPath = strings.TrimPrefix(relPath, "/")
 
 		if relPath == "" {
 			serveIndex(c)
@@ -65,5 +65,21 @@ func registerRoutes(r *gin.RouterGroup, webFS fs.FS) {
 		}
 
 		serveIndex(c)
+	}
+
+	r.GET("/admin", serveIndex)
+	r.GET("/admin/", serveIndex)
+	r.NoRoute(func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		if !strings.HasPrefix(c.Request.URL.Path, "/admin") {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		handleAdminPath(c)
 	})
 }
