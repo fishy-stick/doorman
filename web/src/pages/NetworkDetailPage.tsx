@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteNetwork, getNetwork, type NetworkDetail } from '../api/networks'
+import { deleteNetwork, getNetwork, regenerateNetworkToken, type NetworkDetail } from '../api/networks'
 import { Badge } from '../components/data-display/Badge'
 import { DdnsStatusBadge } from '../components/data-display/DdnsStatusBadge'
 import { FieldList } from '../components/data-display/FieldList'
@@ -16,6 +16,7 @@ export function NetworkDetailPage() {
   const [message, setMessage] = useState('')
   const [notFound, setNotFound] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [regeneratingToken, setRegeneratingToken] = useState(false)
   const [copyMessage, setCopyMessage] = useState('')
   const [network, setNetwork] = useState<NetworkDetail | null>(null)
 
@@ -86,6 +87,33 @@ export function NetworkDetailPage() {
     }
   }
 
+  async function handleRegenerateToken() {
+    if (!networkId || !network) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Regenerate token for "${network.name}"? Existing clients using the current token will stop working until their commands are updated.`,
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setRegeneratingToken(true)
+    setMessage('')
+    setCopyMessage('')
+
+    try {
+      const updated = await regenerateNetworkToken(networkId)
+      setNetwork(updated)
+      setCopyMessage('Token regenerated. Update any clients that use the old command.')
+    } catch (error) {
+      setMessage(errorMessage(error, 'Unable to regenerate token.'))
+    } finally {
+      setRegeneratingToken(false)
+    }
+  }
+
   if (!networkId) {
     return <ErrorState title="Network not found" message="The requested network does not exist." />
   }
@@ -133,7 +161,25 @@ export function NetworkDetailPage() {
         <FieldList
           items={[
             { label: 'Name', value: network.name },
-            { label: 'Token', value: network.token, mono: true },
+            {
+              label: 'Token',
+              value: (
+                <div className="inline-actions">
+                  <span className="mono">{network.token}</span>
+                  <button className="button button-secondary" type="button" onClick={() => handleCopy(network.token, 'token')}>
+                    Copy
+                  </button>
+                  <button
+                    className="button button-secondary button-danger"
+                    type="button"
+                    disabled={regeneratingToken}
+                    onClick={handleRegenerateToken}
+                  >
+                    {regeneratingToken ? 'Regenerating...' : 'Regenerate'}
+                  </button>
+                </div>
+              ),
+            },
             {
               label: 'DDNS',
               value: <Badge tone={network.ddns_enabled ? 'success' : 'neutral'}>{network.ddns_enabled ? 'Enabled' : 'Disabled'}</Badge>,

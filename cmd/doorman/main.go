@@ -58,6 +58,7 @@ func main() {
 			protected.GET("/networks/:id", adminHandler.GetNetwork)
 			protected.POST("/networks", adminHandler.CreateNetwork)
 			protected.PUT("/networks/:id", adminHandler.UpdateNetwork)
+			protected.POST("/networks/:id/token", adminHandler.RegenerateNetworkToken)
 			protected.DELETE("/networks/:id", adminHandler.DeleteNetwork)
 			protected.GET("/networks/:id/knocks", adminHandler.ListKnocks)
 		}

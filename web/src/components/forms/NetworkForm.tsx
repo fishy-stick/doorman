@@ -11,7 +11,7 @@ import {
 
 type FieldErrors = Partial<
   Record<
-    'name' | 'token' | 'ddnsType' | 'rawConfig' | 'dnspod.domain' | 'dnspod.record' | 'dnspod.id' | 'dnspod.token',
+    'name' | 'ddnsType' | 'rawConfig' | 'dnspod.domain' | 'dnspod.record' | 'dnspod.id' | 'dnspod.token',
     string
   >
 >
@@ -72,11 +72,11 @@ export function NetworkForm({
         <div className="section-heading">
           <div>
             <h2>Network Settings</h2>
-            <p>Name the network and set the bearer token used by `/knock`.</p>
+            <p>Name the network. Doorman generates the bearer token after creation.</p>
           </div>
         </div>
         <div className="form-grid">
-          <label className="field">
+          <label className="field field-span-2">
             <span className="field-label">Name</span>
             <input
               className="field-input"
@@ -88,20 +88,6 @@ export function NetworkForm({
               disabled={submitting}
             />
             {errors.name ? <span className="field-error">{errors.name}</span> : null}
-          </label>
-          <label className="field">
-            <span className="field-label">Token</span>
-            <input
-              className="field-input mono"
-              name="token"
-              value={values.token}
-              onChange={(event) => {
-                setValues((current) => ({ ...current, token: event.target.value }))
-              }}
-              disabled={submitting}
-            />
-            <span className="field-help">Clients call `/knock` with `Authorization: Bearer &lt;token&gt;`.</span>
-            {errors.token ? <span className="field-error">{errors.token}</span> : null}
           </label>
         </div>
       </section>
@@ -263,7 +249,6 @@ function buildPayload(values: NetworkFormValues, rawConfig: string, compatibilit
   if (ddnsType === '') {
     return {
       name: values.name.trim(),
-      token: values.token.trim(),
       ddns_enabled: values.ddnsEnabled,
       ddns_type: '',
       ddns_config: '{}',
@@ -272,7 +257,6 @@ function buildPayload(values: NetworkFormValues, rawConfig: string, compatibilit
 
   return {
     name: values.name.trim(),
-    token: values.token.trim(),
     ddns_enabled: values.ddnsEnabled,
     ddns_type: ddnsType,
     ddns_config: compatibilityMode ? rawConfig : serializeDNSPodConfig(values.dnspod),
@@ -284,10 +268,6 @@ function validateForm(values: NetworkFormValues, rawConfig: string, compatibilit
 
   if (values.name.trim() === '') {
     errors.name = 'Name is required.'
-  }
-
-  if (values.token.trim() === '') {
-    errors.token = 'Token is required.'
   }
 
   if (values.ddnsEnabled && values.ddnsType === '') {

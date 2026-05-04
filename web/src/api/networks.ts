@@ -30,7 +30,6 @@ export type NetworkDetail = {
 
 export type NetworkPayload = {
   name: string
-  token: string
   ddns_enabled: boolean
   ddns_type: string
   ddns_config: string
@@ -75,6 +74,12 @@ export function updateNetwork(id: string | number, payload: NetworkPayload): Pro
   return apiRequest<NetworkDetail>(`/admin/api/networks/${id}`, {
     method: 'PUT',
     body: payload,
+  })
+}
+
+export function regenerateNetworkToken(id: string | number): Promise<NetworkDetail> {
+  return apiRequest<NetworkDetail>(`/admin/api/networks/${id}/token`, {
+    method: 'POST',
   })
 }
 

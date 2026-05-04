@@ -9,6 +9,7 @@ import (
 	"doorman/internal/store"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func TestListNetworksReturnsEmptyArray(t *testing.T) {
@@ -154,7 +155,7 @@ func TestChangePasswordInvalidatesExistingSessions(t *testing.T) {
 	}
 }
 
-func TestCreateNetworkReturnsBadRequestForInvalidPayload(t *testing.T) {
+func TestCreateNetworkGeneratesUUIDToken(t *testing.T) {
 	t.Parallel()
 
 	s := newTestStore(t)
@@ -162,35 +163,49 @@ func TestCreateNetworkReturnsBadRequestForInvalidPayload(t *testing.T) {
 	router := gin.New()
 	router.POST("/admin/api/networks", h.CreateNetwork)
 
-	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","token":"","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
 		"Content-Type": "application/json",
 	})
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
+	if resp.Code != http.StatusCreated {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusCreated, resp.Body.String())
+	}
+
+	var body networkDetailResponse
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	if _, err := uuid.Parse(body.Token); err != nil {
+		t.Fatalf("token = %q, want UUID: %v", body.Token, err)
+	}
+	if body.Commands.Curl == "" || body.Commands.Crontab == "" {
+		t.Fatalf("commands = %+v, want generated commands", body.Commands)
 	}
 }
 
-func TestCreateNetworkReturnsConflictForDuplicateToken(t *testing.T) {
+func TestCreateNetworkIgnoresSubmittedToken(t *testing.T) {
 	t.Parallel()
 
 	s := newTestStore(t)
-	if err := s.CreateNetwork(&store.Network{
-		Name:       "home",
-		Token:      "shared-token",
-		DDNSConfig: "{}",
-	}); err != nil {
-		t.Fatalf("CreateNetwork(seed) error = %v", err)
-	}
-
 	h := NewAdminHandler(s, auth.NewSessionManager())
 	router := gin.New()
 	router.POST("/admin/api/networks", h.CreateNetwork)
 
-	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"office","token":"shared-token","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks", `{"name":"home","token":"manual-token","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
 		"Content-Type": "application/json",
 	})
-	if resp.Code != http.StatusConflict {
-		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusConflict, resp.Body.String())
+	if resp.Code != http.StatusCreated {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusCreated, resp.Body.String())
+	}
+
+	var body networkDetailResponse
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	if body.Token == "manual-token" {
+		t.Fatal("token used submitted value, want generated UUID")
+	}
+	if _, err := uuid.Parse(body.Token); err != nil {
+		t.Fatalf("token = %q, want UUID: %v", body.Token, err)
 	}
 }
 
@@ -274,4 +289,119 @@ func TestUpdateNetworkReturnsBadRequestForInvalidDNSPodConfig(t *testing.T) {
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
 	}
+}
+
+func TestUpdateNetworkPreservesToken(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	network := &store.Network{
+		Name:       "home",
+		Token:      "token-1",
+		DDNSConfig: "{}",
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork(seed) error = %v", err)
+	}
+
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.PUT("/admin/api/networks/:id", h.UpdateNetwork)
+
+	resp := performRequest(t, router, http.MethodPut, "/admin/api/networks/1", `{"name":"home-updated","token":"token-2","ddns_config":"{}"}`, "127.0.0.1:1234", map[string]string{
+		"Content-Type": "application/json",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusOK, resp.Body.String())
+	}
+
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	if body.Token != "token-1" {
+		t.Fatalf("response token = %q, want %q", body.Token, "token-1")
+	}
+
+	got, err := s.GetNetwork(network.ID)
+	if err != nil {
+		t.Fatalf("GetNetwork() error = %v", err)
+	}
+	if got == nil || got.Token != "token-1" {
+		t.Fatalf("stored token = %v, want token-1", got)
+	}
+}
+
+func TestRegenerateNetworkTokenUpdatesTokenAndInvalidatesOldToken(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	network := &store.Network{
+		Name:       "home",
+		Token:      "token-1",
+		DDNSConfig: "{}",
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork(seed) error = %v", err)
+	}
+
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	knockHandler := NewKnockHandler(s, false)
+	router := gin.New()
+	router.POST("/admin/api/networks/:id/token", h.RegenerateNetworkToken)
+	router.GET("/knock", auth.KnockAuth(s), knockHandler.Handle)
+
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks/1/token", "", "127.0.0.1:1234", nil)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusOK, resp.Body.String())
+	}
+
+	var body networkDetailResponse
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	if body.Token == "token-1" {
+		t.Fatal("regenerated token did not change")
+	}
+	if _, err := uuid.Parse(body.Token); err != nil {
+		t.Fatalf("token = %q, want UUID: %v", body.Token, err)
+	}
+
+	oldTokenResp := performRequest(t, router, http.MethodGet, "/knock", "", "198.51.100.10:1000", map[string]string{
+		"Authorization": "Bearer token-1",
+	})
+	if oldTokenResp.Code != http.StatusUnauthorized {
+		t.Fatalf("old token status code = %d, want %d, body = %s", oldTokenResp.Code, http.StatusUnauthorized, oldTokenResp.Body.String())
+	}
+
+	newTokenResp := performRequest(t, router, http.MethodGet, "/knock", "", "198.51.100.11:1001", map[string]string{
+		"Authorization": "Bearer " + body.Token,
+	})
+	if newTokenResp.Code != http.StatusOK {
+		t.Fatalf("new token status code = %d, want %d, body = %s", newTokenResp.Code, http.StatusOK, newTokenResp.Body.String())
+	}
+}
+
+func TestRegenerateNetworkTokenReturnsNotFound(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.POST("/admin/api/networks/:id/token", h.RegenerateNetworkToken)
+
+	resp := performRequest(t, router, http.MethodPost, "/admin/api/networks/99/token", "", "127.0.0.1:1234", nil)
+	if resp.Code != http.StatusNotFound {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusNotFound, resp.Body.String())
+	}
+}
+
+type networkDetailResponse struct {
+	Token    string `json:"token"`
+	Commands struct {
+		Curl    string `json:"curl"`
+		Crontab string `json:"crontab"`
+	} `json:"commands"`
 }

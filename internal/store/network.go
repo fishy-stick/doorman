@@ -108,6 +108,25 @@ func (s *Store) UpdateNetwork(n *Network) error {
 		}).Error
 }
 
+func (s *Store) UpdateNetworkToken(id int64, token string) error {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return fmt.Errorf("%w: token is required", ErrInvalidNetwork)
+	}
+
+	tokenExists, err := s.networkFieldExists("token", token, id)
+	if err != nil {
+		return err
+	}
+	if tokenExists {
+		return ErrNetworkTokenConflict
+	}
+
+	return s.db.Model(&Network{}).
+		Where("id = ?", id).
+		Update("token", token).Error
+}
+
 func (s *Store) DeleteNetwork(id int64) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("network_id = ?", id).Delete(&Knock{}).Error; err != nil {

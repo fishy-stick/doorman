@@ -9,6 +9,7 @@ import (
 	"doorman/internal/auth"
 	"doorman/internal/store"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type AdminHandler struct {
@@ -125,6 +126,10 @@ func (h *AdminHandler) GetNetwork(c *gin.Context) {
 		return
 	}
 
+	h.respondNetworkDetail(c, http.StatusOK, network)
+}
+
+func (h *AdminHandler) respondNetworkDetail(c *gin.Context, status int, network *store.Network) {
 	latestKnock, _ := h.store.GetLatestKnock(network.ID)
 
 	var currentIP, previousIP, lastKnock, ddnsStatus interface{}
@@ -138,7 +143,7 @@ func (h *AdminHandler) GetNetwork(c *gin.Context) {
 	curlCmd := fmt.Sprintf(`curl -H "Authorization: Bearer %s" http://your-server:8080/knock`, network.Token)
 	crontabCmd := fmt.Sprintf(`*/5 * * * * curl -s -H "Authorization: Bearer %s" http://your-server:8080/knock > /dev/null 2>&1`, network.Token)
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(status, gin.H{
 		"id":           network.ID,
 		"name":         network.Name,
 		"token":        network.Token,
@@ -163,13 +168,14 @@ func (h *AdminHandler) CreateNetwork(c *gin.Context) {
 		return
 	}
 	network.ID = 0
+	network.Token = uuid.NewString()
 
 	if err := h.store.CreateNetwork(&network); err != nil {
 		h.respondStoreError(c, err, "failed to create network")
 		return
 	}
 
-	c.JSON(http.StatusCreated, network)
+	h.respondNetworkDetail(c, http.StatusCreated, &network)
 }
 
 func (h *AdminHandler) UpdateNetwork(c *gin.Context) {
@@ -197,12 +203,45 @@ func (h *AdminHandler) UpdateNetwork(c *gin.Context) {
 	}
 
 	network.ID = id
+	network.Token = existing.Token
 	if err := h.store.UpdateNetwork(&network); err != nil {
 		h.respondStoreError(c, err, "failed to update network")
 		return
 	}
 
 	c.JSON(http.StatusOK, network)
+}
+
+func (h *AdminHandler) RegenerateNetworkToken(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid network id"})
+		return
+	}
+
+	existing, err := h.store.GetNetwork(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		return
+	}
+
+	if existing == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "network not found"})
+		return
+	}
+
+	if err := h.store.UpdateNetworkToken(id, uuid.NewString()); err != nil {
+		h.respondStoreError(c, err, "failed to regenerate token")
+		return
+	}
+
+	updated, err := h.store.GetNetwork(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		return
+	}
+
+	h.respondNetworkDetail(c, http.StatusOK, updated)
 }
 
 func (h *AdminHandler) DeleteNetwork(c *gin.Context) {

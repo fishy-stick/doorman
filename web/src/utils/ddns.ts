@@ -9,7 +9,6 @@ export type DNSPodConfigForm = {
 
 export type NetworkFormValues = {
   name: string
-  token: string
   ddnsEnabled: boolean
   ddnsType: DdnsProviderType
   dnspod: DNSPodConfigForm
@@ -29,7 +28,6 @@ export const emptyDNSPodConfig: DNSPodConfigForm = {
 export function emptyNetworkFormValues(): NetworkFormValues {
   return {
     name: '',
-    token: '',
     ddnsEnabled: false,
     ddnsType: '',
     dnspod: { ...emptyDNSPodConfig },

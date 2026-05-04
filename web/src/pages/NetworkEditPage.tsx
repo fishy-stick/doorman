@@ -106,7 +106,6 @@ export function NetworkEditPage() {
 function buildFormState(network: NetworkDetail): LoadedFormState {
   const initialValues: NetworkFormValues = {
     name: network.name,
-    token: network.token,
     ddnsEnabled: network.ddns_enabled,
     ddnsType: '',
     dnspod: { ...emptyDNSPodConfig },
