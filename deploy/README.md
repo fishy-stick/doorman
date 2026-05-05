@@ -1,23 +1,32 @@
 # Deploy
 
-当前仓库提供的是基于 Docker 的部署方式，构建时会把前端静态资源嵌入到后端二进制里，运行时只需要一个容器。
+Language: English | [简体中文](README.zh-CN.md)
 
-## 文件说明
+This guide covers the three supported deployment modes for Doorman:
 
-- 根目录 `Dockerfile`：多阶段构建镜像。
-- 根目录 `.dockerignore`：避免把本地 `node_modules`、数据库和本地配置带进构建上下文。
+- Docker
+- Direct binary execution
+- `systemd` service management
 
-## 构建镜像
+Doorman is shipped as a Go binary with embedded frontend assets. At runtime it depends on `config.yaml` and a SQLite database file. It is best deployed on a publicly reachable server outside the home network, such as a VPS, cloud instance, or another long-running public node.
 
-在仓库根目录执行：
+## Docker Deployment
+
+### Build the Image
+
+Run this from the repository root:
 
 ```bash
 docker build -t doorman .
 ```
 
-## 运行容器
+The image build does the following:
 
-最简单的启动方式：
+- Builds the frontend assets from `web/`
+- Embeds the frontend output into the Go binary
+- Writes a default `/app/config.yaml` into the runtime image
+
+### Default Runtime
 
 ```bash
 docker run -d \
@@ -27,7 +36,7 @@ docker run -d \
   doorman
 ```
 
-默认镜像内会生成一个 `/app/config.yaml`，内容等价于：
+The default in-container configuration is equivalent to:
 
 ```yaml
 server:
@@ -36,15 +45,18 @@ server:
   db: "/app/data/doorman.db"
 ```
 
-这意味着：
+Default runtime properties:
 
-- 服务监听 `8080`
-- SQLite 数据库存放在 `/app/data/doorman.db`
-- 只要挂载 `/app/data`，容器重建后数据仍会保留
+- The service listens on container port `8080`
+- The database is stored at `/app/data/doorman.db`
+- The container runs as `nobody:nogroup`
+- The image declares `VOLUME /app/data`
 
-## 使用自定义配置
+As long as `/app/data` is persisted, the database survives container recreation.
 
-如果你需要修改端口、数据库路径或 `trust_proxy`，可以准备自己的 `config.yaml`，挂载到容器内：
+### Custom Configuration
+
+If you need to change the listening port, database path, or `trust_proxy`, mount your own configuration file:
 
 ```bash
 docker run -d \
@@ -55,20 +67,149 @@ docker run -d \
   doorman
 ```
 
-如果你把数据库路径改到别的位置，记得同步挂载对应目录。
+If you move `server.db` to another path, make sure the matching directory is mounted as well.
 
-## 首次启动
+If you use a bind mount instead of a Docker volume, ensure the mounted directory is writable by `nobody:nogroup`, otherwise SQLite cannot create or update the database.
 
-首次启动时，服务会自动生成管理员密码并写到容器日志里。查看方式：
+### First Startup and Checks
+
+On first startup, the service generates an admin password and prints it to the logs:
 
 ```bash
 docker logs doorman
 ```
 
-拿到密码后访问：
+Then open:
 
 ```text
 http://<your-host>:8080/admin
 ```
 
-建议首次登录后立即修改管理员密码。
+Recommended initial checks:
+
+1. Confirm `/admin` opens successfully
+2. Sign in with the password from the logs
+3. Create a network and trigger `/knock` once
+4. Verify `/app/data/doorman.db` exists and history records are visible
+
+## Direct Binary Execution
+
+### Build
+
+Build the frontend first, then compile the embedded binary:
+
+```bash
+cd web
+pnpm install
+pnpm run build:embed
+cd ..
+
+go build -tags embedweb -o doorman ./cmd/doorman/
+```
+
+### Prepare Configuration
+
+Create `config.yaml` in the binary working directory:
+
+```yaml
+server:
+  port: 8080
+  trust_proxy: true
+  db: "/var/lib/doorman/doorman.db"
+```
+
+The program always reads `config.yaml` from the current working directory. If you launch it with:
+
+```bash
+./doorman
+```
+
+then your current shell directory must contain `config.yaml`.
+
+If `server.db` uses a relative path such as `doorman.db`, that path is also resolved relative to the current working directory. Absolute paths are safer for production.
+
+### Start
+
+```bash
+./doorman
+```
+
+After first startup, read the initial admin password from standard output logs.
+
+## Running Under systemd
+
+Here is a `systemd` unit example you can adapt directly:
+
+```ini
+[Unit]
+Description=Doorman DDNS Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=doorman
+Group=doorman
+WorkingDirectory=/opt/doorman
+ExecStart=/opt/doorman/doorman
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Suggested directory layout:
+
+- `/opt/doorman/doorman`
+- `/opt/doorman/config.yaml`
+- `/var/lib/doorman/doorman.db`
+
+Recommended setup:
+
+- Create a dedicated service user such as `doorman`
+- Use an absolute database path
+- Set `WorkingDirectory` to the directory that contains `config.yaml`
+- Make sure the database directory is writable by the service user
+
+Common commands:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now doorman
+sudo systemctl status doorman
+sudo journalctl -u doorman -f
+```
+
+On first startup, read the initial admin password from `journalctl`.
+
+## Reverse Proxy and trust_proxy
+
+If Doorman is behind Nginx, Caddy, or another reverse proxy that you control, you can keep:
+
+```yaml
+server:
+  trust_proxy: true
+```
+
+In that mode, Doorman trusts these sources in order:
+
+1. `X-Forwarded-For`
+2. `X-Real-IP`
+3. `RemoteAddr`
+
+If the service is exposed directly to the public internet, or the upstream proxy chain is not fully trusted, use:
+
+```yaml
+server:
+  trust_proxy: false
+```
+
+Otherwise, forged headers may affect public IP detection.
+
+## Upgrade and Change Notes
+
+- When upgrading Docker deployments, keep the database file in the existing volume or bind mount
+- After regenerating a network token, all existing client commands stop working immediately
+- Admin sessions are stored in memory, so a restart requires logging in again
+- Before changing `trust_proxy`, confirm the real network topology and proxy chain

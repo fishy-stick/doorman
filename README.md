@@ -1,77 +1,156 @@
 # Doorman
 
-轻量级 DDNS 服务端工具，适用于家庭动态公网 IP 场景，运行于网关之后。
+Language: English | [简体中文](README.zh-CN.md)
 
-自带前后端，单一二进制部署。通过 HTTP 接口接收客户端请求，基于请求来源识别公网 IP，按配置条件触发 DDNS 更新。支持多个内网，每个内网独立配置。
+Doorman is a lightweight DDNS server for home networks with dynamic public IPs. It is typically deployed on a public server outside the home network, receives HTTP requests from clients inside the home network, and triggers DDNS updates when the observed public IP changes.
 
-## 功能特性
+The project includes both an admin UI and an API. In production it can run as a single Go binary, with data stored in SQLite and no external database dependency.
 
-- 支持多内网，每个内网独立 token 和 DDNS 配置
-- 从请求来源自动获取公网 IP（支持 X-Forwarded-For、X-Real-IP、RemoteAddr）
-- 基于 Bearer Token 的请求认证
-- IP 变化检测与历史记录
-- DDNS Provider 可扩展（当前支持 DNSPod）
-- 自动生成 curl / crontab 调用命令
-- SQLite 持久化，重启不丢失数据
-- 单一二进制部署，无外部依赖
+## Features
 
-## 快速开始
+- Supports multiple home networks, each with its own name, token, and DDNS configuration
+- Detects the public IP from the request source
+- Supports `X-Forwarded-For`, `X-Real-IP`, and `RemoteAddr`
+- Protects the `/knock` endpoint with a Bearer token
+- Records IP history, change status, and DDNS execution results
+- Currently ships with a built-in `DNSPod` provider
+- Generates `curl` and `crontab` commands directly in the admin UI
+- Persists data in SQLite so records survive restarts
+
+## Requirements
+
+- Go `1.26+`
+- Node.js `22+`
+- `pnpm`
+
+If `pnpm` is not enabled on your machine yet, run:
 
 ```bash
-# 安装前端依赖
-cd web && pnpm install && cd ..
+corepack enable
+```
 
+## Quick Start
+
+### Development Mode
+
+In development, start the backend and frontend separately:
+
+```bash
 cp config.example.yaml config.yaml
-# 编辑 config.yaml 配置端口、数据库路径
-
-# 开发：后端 API
-go run ./cmd/doorman/
-
-# 开发：前端 dev server（反代 /admin/api 和 /knock 到后端）
-cd web && pnpm dev && cd ..
-# 访问 http://127.0.0.1:5173/admin/
 ```
 
 ```bash
-# 生产构建：前端产物输出到 internal/webui/dist
-cd web && pnpm run build:embed && cd ..
-
-# 生产构建：仅正式打包时嵌入前端
-go build -tags embedweb -o doorman ./cmd/doorman/
-
-./doorman
-# 访问 http://localhost:8080/admin
+go run ./cmd/doorman/
 ```
 
-## 配置
+```bash
+cd web
+pnpm install
+pnpm dev
+```
 
-服务运行参数通过 YAML 配置，内网和 DDNS 通过 Web 管理：
+Open `http://127.0.0.1:15173/admin/`.
 
-| 配置项 | 说明 |
-|--------|------|
-| `server.port` | 监听端口，默认 `:8080` |
-| `server.trust_proxy` | 是否信任代理头，默认 `true` |
-| `server.db` | SQLite 数据库文件路径，默认 `doorman.db` |
+Notes:
 
-首次启动时自动生成随机管理员密码，请查看日志输出，并在首次登录后及时修改。
+- Run `go run ./cmd/doorman/` from a directory that contains `config.yaml`
+- In development, the admin UI is served by Vite while the backend handles only `/admin/api` and `/knock`
+- The initial admin password is printed to the server logs on first startup
 
-## 客户端调用
+### Production Build
 
-通过标准 HTTP 请求调用，可结合 crontab 或 systemd timer 定时执行：
+In production, build the frontend assets first and then embed them into the Go binary:
+
+```bash
+cd web
+pnpm install
+pnpm run build:embed
+cd ..
+
+go build -tags embedweb -o doorman ./cmd/doorman/
+./doorman
+```
+
+Open `http://127.0.0.1:8080/admin`.
+
+If you build without the `embedweb` tag, the binary will not include the admin UI and `/admin` will not serve the frontend.
+
+## Configuration
+
+Runtime configuration is provided through `config.yaml`. Home networks and DDNS rules are managed from the web UI.
+
+Example:
+
+```yaml
+server:
+  port: 8080
+  trust_proxy: true
+  db: "doorman.db"
+```
+
+Field reference:
+
+| Key | Description |
+|-----|-------------|
+| `server.port` | Listening port. Default: `:8080`. You can write `8080` or `:8080`; the program normalizes it automatically. |
+| `server.trust_proxy` | Whether to trust proxy headers. Default: `true`. |
+| `server.db` | SQLite database path. Default: `doorman.db`. |
+
+## Typical Flow
+
+1. Start the server and read the initial admin password from the logs.
+2. Open `/admin` and sign in.
+3. Create a network.
+4. Copy the generated `curl` or `crontab` command.
+5. Call `/knock` on the public server from the target home network on a schedule.
+6. Use the admin UI to inspect the current IP, history, and DDNS status.
+
+Doorman generates the Bearer token automatically when you create a network. If you regenerate the token later, existing client commands stop working immediately and must be updated.
+
+## Client Request
+
+Clients only need to send a standard HTTP request:
 
 ```bash
 curl -H "Authorization: Bearer your-token" http://your-server:8080/knock
 ```
 
-## 部署
+The response includes the detected IP, whether it changed, and whether DDNS was updated during that request.
 
-支持直接运行、Docker、systemd 等方式部署，详见 [deploy/](deploy/) 目录。
+## Runtime Behavior
 
-## 设计原则
+### IP Resolution
 
-- **不信任客户端**：IP 始终从请求来源获取，不依赖请求体
-- **极简设计**：单一二进制，SQLite 存储，无外部依赖
-- **自用工具**：面向家庭网络场景，不追求高可用
+When `server.trust_proxy=true`, Doorman resolves the client IP in this order:
+
+1. The first valid IP in `X-Forwarded-For`
+2. `X-Real-IP`
+3. `RemoteAddr`
+
+If the service is exposed directly to the public internet and is not behind a reverse proxy you control, set `trust_proxy` to `false` to avoid forged headers affecting IP detection.
+
+### Sessions and Login
+
+- Admin sessions are stored in memory as cookies
+- Each session is valid for 24 hours
+- All admin sessions are lost after a service restart
+- Changing the admin password clears every active session
+
+### DDNS Execution
+
+- DDNS runs only when the network has DDNS enabled and the observed IP differs from the previous one
+- The only built-in provider right now is `DNSPod`
+- Even when DDNS is disabled, Doorman still records `/knock` history
+
+## Deployment
+
+Doorman supports Docker, direct binary execution, and `systemd` service management. See [deploy/README.md](deploy/README.md).
+
+## Design Principles
+
+- **Do not trust client-reported IPs**: determine the public IP from the request source only
+- **Keep it simple**: single binary, SQLite, minimal dependencies
+- **Optimize for self-hosted home use**: focus on dynamic public IP management for home networks
 
 ## License
 
