@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useI18n } from '../i18n'
 import { deleteNetwork, listNetworks, type NetworkSummary } from '../api/networks'
 import { Badge } from '../components/data-display/Badge'
 import { DdnsStatusBadge } from '../components/data-display/DdnsStatusBadge'
@@ -10,14 +11,11 @@ import { formatDate } from '../utils/date'
 import { errorMessage } from '../utils/errors'
 
 export function NetworksPage() {
+  const { locale, t } = useI18n()
   const [networks, setNetworks] = useState<NetworkSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
-
-  useEffect(() => {
-    loadNetworks()
-  }, [])
 
   async function loadNetworks() {
     setLoading(true)
@@ -27,14 +25,41 @@ export function NetworksPage() {
       const nextNetworks = await listNetworks()
       setNetworks(nextNetworks)
     } catch (error) {
-      setMessage(errorMessage(error, 'Unable to load networks.'))
+      setMessage(errorMessage(error, t('networks.unableLoad')))
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => {
+    let active = true
+
+    async function loadInitialNetworks() {
+      try {
+        const nextNetworks = await listNetworks()
+        if (active) {
+          setNetworks(nextNetworks)
+        }
+      } catch (error) {
+        if (active) {
+          setMessage(errorMessage(error, t('networks.unableLoad')))
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadInitialNetworks()
+
+    return () => {
+      active = false
+    }
+  }, [t])
+
   async function handleDelete(network: NetworkSummary) {
-    const confirmed = window.confirm(`Delete network "${network.name}"? This also removes its knock history.`)
+    const confirmed = window.confirm(t('networks.deleteConfirm', { name: network.name }))
     if (!confirmed) {
       return
     }
@@ -45,7 +70,7 @@ export function NetworksPage() {
       await deleteNetwork(network.id)
       await loadNetworks()
     } catch (error) {
-      setMessage(errorMessage(error, 'Unable to delete the network.'))
+      setMessage(errorMessage(error, t('networks.unableDelete')))
       setLoading(false)
     } finally {
       setDeletingId(null)
@@ -56,11 +81,11 @@ export function NetworksPage() {
     <section>
       <div className="page-header">
         <div>
-          <h1>Networks</h1>
-          <p>Track public IP changes and keep each DDNS target under one admin surface.</p>
+          <h1>{t('networks.title')}</h1>
+          <p>{t('networks.subtitle')}</p>
         </div>
         <Link className="button" to="/admin/networks/new">
-          New Network
+          {t('networks.newNetwork')}
         </Link>
       </div>
 
@@ -70,20 +95,20 @@ export function NetworksPage() {
         </div>
       ) : null}
 
-      {loading ? <LoadingState label="Loading networks" /> : null}
+      {loading ? <LoadingState label={t('networks.loading')} /> : null}
 
       {!loading && message && networks.length === 0 ? (
-        <ErrorState message={message} actionLabel="Retry" onAction={loadNetworks} />
+        <ErrorState message={message} actionLabel={t('common.retry')} onAction={loadNetworks} />
       ) : null}
 
       {!loading && !message && networks.length === 0 ? (
         <section className="page-panel">
           <EmptyState
-            title="No networks yet"
-            message="Create the first managed network to start recording knocks and DDNS updates."
+            title={t('networks.noNetworksTitle')}
+            message={t('networks.noNetworksMessage')}
             action={
               <Link className="button" to="/admin/networks/new">
-                Create Network
+                {t('networks.createNetwork')}
               </Link>
             }
           />
@@ -100,38 +125,38 @@ export function NetworksPage() {
                     <Link className="table-link" to={`/admin/networks/${network.id}`}>
                       {network.name}
                     </Link>
-                    <p>{formatDate(network.last_knock)}</p>
+                    <p>{formatDate(network.last_knock, locale, t('common.never'))}</p>
                   </div>
                   <DdnsStatusBadge status={network.ddns_status} />
                 </div>
 
                 <div className="network-card-grid">
                   <div>
-                    <span className="meta-label">DDNS</span>
+                    <span className="meta-label">{t('common.ddns')}</span>
                     <Badge tone={network.ddns_enabled ? 'success' : 'neutral'}>
-                      {network.ddns_enabled ? 'Enabled' : 'Disabled'}
+                      {network.ddns_enabled ? t('common.enabled') : t('common.disabled')}
                     </Badge>
                   </div>
                   <div>
-                    <span className="meta-label">Provider</span>
-                    <span>{network.ddns_type || 'None'}</span>
+                    <span className="meta-label">{t('common.provider')}</span>
+                    <span>{network.ddns_type || t('common.none')}</span>
                   </div>
                   <div>
-                    <span className="meta-label">Current IP</span>
-                    <span className="mono">{network.current_ip ?? 'Unknown'}</span>
+                    <span className="meta-label">{t('common.currentIp')}</span>
+                    <span className="mono">{network.current_ip ?? t('common.unknown')}</span>
                   </div>
                   <div>
-                    <span className="meta-label">Previous IP</span>
-                    <span className="mono">{network.previous_ip ?? 'None'}</span>
+                    <span className="meta-label">{t('common.previousIp')}</span>
+                    <span className="mono">{network.previous_ip ?? t('common.none')}</span>
                   </div>
                 </div>
 
                 <div className="inline-actions">
                   <Link className="button button-secondary" to={`/admin/networks/${network.id}`}>
-                    Detail
+                    {t('common.detail')}
                   </Link>
                   <Link className="button button-secondary" to={`/admin/networks/${network.id}/edit`}>
-                    Edit
+                    {t('common.edit')}
                   </Link>
                   <button
                     className="button button-secondary button-danger"
@@ -139,7 +164,7 @@ export function NetworksPage() {
                     disabled={deletingId === network.id}
                     onClick={() => handleDelete(network)}
                   >
-                    {deletingId === network.id ? 'Deleting...' : 'Delete'}
+                    {deletingId === network.id ? t('common.deleting') : t('common.delete')}
                   </button>
                 </div>
               </article>
@@ -151,14 +176,14 @@ export function NetworksPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>DDNS</th>
-                  <th>Provider</th>
-                  <th>Current IP</th>
-                  <th>Previous IP</th>
-                  <th>Last Knock</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th>{t('common.name')}</th>
+                  <th>{t('common.ddns')}</th>
+                  <th>{t('common.provider')}</th>
+                  <th>{t('common.currentIp')}</th>
+                  <th>{t('common.previousIp')}</th>
+                  <th>{t('common.lastKnock')}</th>
+                  <th>{t('common.status')}</th>
+                  <th>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,23 +196,23 @@ export function NetworksPage() {
                     </td>
                     <td>
                       <Badge tone={network.ddns_enabled ? 'success' : 'neutral'}>
-                        {network.ddns_enabled ? 'Enabled' : 'Disabled'}
+                        {network.ddns_enabled ? t('common.enabled') : t('common.disabled')}
                       </Badge>
                     </td>
-                    <td>{network.ddns_type || 'None'}</td>
-                    <td className="mono">{network.current_ip ?? 'Unknown'}</td>
-                    <td className="mono">{network.previous_ip ?? 'None'}</td>
-                    <td>{formatDate(network.last_knock)}</td>
+                    <td>{network.ddns_type || t('common.none')}</td>
+                    <td className="mono">{network.current_ip ?? t('common.unknown')}</td>
+                    <td className="mono">{network.previous_ip ?? t('common.none')}</td>
+                    <td>{formatDate(network.last_knock, locale, t('common.never'))}</td>
                     <td>
                       <DdnsStatusBadge status={network.ddns_status} />
                     </td>
                     <td>
                       <div className="inline-actions">
                         <Link className="button button-secondary" to={`/admin/networks/${network.id}`}>
-                          Detail
+                          {t('common.detail')}
                         </Link>
                         <Link className="button button-secondary" to={`/admin/networks/${network.id}/edit`}>
-                          Edit
+                          {t('common.edit')}
                         </Link>
                         <button
                           className="button button-secondary button-danger"
@@ -195,7 +220,7 @@ export function NetworksPage() {
                           disabled={deletingId === network.id}
                           onClick={() => handleDelete(network)}
                         >
-                          {deletingId === network.id ? 'Deleting...' : 'Delete'}
+                          {deletingId === network.id ? t('common.deleting') : t('common.delete')}
                         </button>
                       </div>
                     </td>

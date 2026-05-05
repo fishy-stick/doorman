@@ -1,3 +1,5 @@
+import type { TranslationKey } from '../i18n/messages'
+
 export type DdnsProviderType = '' | 'dnspod'
 
 export type DNSPodConfigForm = {
@@ -16,7 +18,7 @@ export type NetworkFormValues = {
 
 export type NetworkConfigMode =
   | { kind: 'structured-dnspod'; values: DNSPodConfigForm }
-  | { kind: 'raw-json'; raw: string; reason: string }
+  | { kind: 'raw-json'; raw: string; reasonKey: TranslationKey }
 
 export const emptyDNSPodConfig: DNSPodConfigForm = {
   domain: '',
@@ -52,7 +54,7 @@ export function parseDNSPodConfig(raw: string): NetworkConfigMode {
     return {
       kind: 'raw-json',
       raw,
-      reason: 'Current DDNS config is not valid JSON.',
+      reasonKey: 'networkForm.compatibilityInvalidJson',
     }
   }
 
@@ -60,7 +62,7 @@ export function parseDNSPodConfig(raw: string): NetworkConfigMode {
     return {
       kind: 'raw-json',
       raw,
-      reason: 'Current DDNS config cannot be mapped to the DNSPod form because it is not a JSON object.',
+      reasonKey: 'networkForm.compatibilityNotObject',
     }
   }
 
@@ -69,7 +71,7 @@ export function parseDNSPodConfig(raw: string): NetworkConfigMode {
     return {
       kind: 'raw-json',
       raw,
-      reason: 'Current DDNS config cannot be mapped to the DNSPod form. Fix the JSON fields and save again.',
+      reasonKey: 'networkForm.compatibilityUnsupportedShape',
     }
   }
 
@@ -83,17 +85,17 @@ export function isSupportedProvider(value: string): value is DdnsProviderType {
   return value === '' || value === 'dnspod'
 }
 
-export function validateRawJSONConfig(raw: string): string | null {
+export function validateRawJSONConfig(raw: string): TranslationKey | null {
   let parsed: unknown
 
   try {
     parsed = JSON.parse(raw || '{}')
   } catch {
-    return 'DDNS config must be valid JSON.'
+    return 'networkForm.rawJsonInvalid'
   }
 
   if (!isRecord(parsed)) {
-    return 'DDNS config must be a JSON object.'
+    return 'networkForm.rawJsonNotObject'
   }
 
   return null

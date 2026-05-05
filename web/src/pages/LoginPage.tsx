@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '../i18n'
 import { checkSession, login } from '../api/auth'
+import { LanguageSwitcher } from '../components/layout/LanguageSwitcher'
 import { ErrorState } from '../components/feedback/ErrorState'
 import { LoadingState } from '../components/feedback/LoadingState'
 import { errorMessage, isUnauthorized } from '../utils/errors'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [password, setPassword] = useState('')
   const [checkingSession, setCheckingSession] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -29,7 +32,7 @@ export function LoginPage() {
         }
 
         if (!isUnauthorized(error)) {
-          setFatalError(errorMessage(error, 'Unable to check the admin session.'))
+          setFatalError(errorMessage(error, t('login.unableCheckSession')))
         }
       })
       .finally(() => {
@@ -41,14 +44,14 @@ export function LoginPage() {
     return () => {
       active = false
     }
-  }, [navigate])
+  }, [navigate, t])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const trimmedPassword = password.trim()
     if (trimmedPassword === '') {
-      setMessage('Password is required.')
+      setMessage(t('login.passwordRequired'))
       return
     }
 
@@ -59,7 +62,7 @@ export function LoginPage() {
       await login(trimmedPassword)
       navigate('/admin/networks', { replace: true })
     } catch (error) {
-      setMessage(errorMessage(error, 'Login failed.'))
+      setMessage(errorMessage(error, t('login.loginFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -68,7 +71,7 @@ export function LoginPage() {
   if (checkingSession) {
     return (
       <main className="screen">
-        <LoadingState label="Checking session" />
+        <LoadingState label={t('login.checkingSession')} />
       </main>
     )
   }
@@ -76,7 +79,7 @@ export function LoginPage() {
   if (fatalError) {
     return (
       <main className="screen">
-        <ErrorState message={fatalError} actionLabel="Retry" onAction={() => window.location.reload()} />
+        <ErrorState message={fatalError} actionLabel={t('common.retry')} onAction={() => window.location.reload()} />
       </main>
     )
   }
@@ -84,15 +87,18 @@ export function LoginPage() {
   return (
     <main className="screen login-screen">
       <section className="page-panel auth-panel">
+        <div className="auth-toolbar">
+          <LanguageSwitcher />
+        </div>
         <div className="page-header auth-header">
           <div>
             <h1>Doorman</h1>
-            <p>Sign in to manage networks, DDNS settings, and knock history.</p>
+            <p>{t('login.description')}</p>
           </div>
         </div>
         <form className="form-stack" onSubmit={handleSubmit}>
           <label className="field">
-            <span className="field-label">Password</span>
+            <span className="field-label">{t('login.password')}</span>
             <input
               autoComplete="current-password"
               className="field-input"
@@ -105,7 +111,7 @@ export function LoginPage() {
           </label>
           {message ? <div className="form-message form-message-error">{message}</div> : null}
           <button className="button button-block" type="submit" disabled={submitting}>
-            {submitting ? 'Signing in...' : 'Sign In'}
+            {submitting ? t('login.signingIn') : t('login.signIn')}
           </button>
         </form>
       </section>

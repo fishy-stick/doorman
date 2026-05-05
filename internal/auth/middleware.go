@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"doorman/internal/i18n"
 	"doorman/internal/store"
 	"github.com/gin-gonic/gin"
 )
@@ -121,13 +122,17 @@ func AdminAuth(sm *SessionManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cookie, err := c.Cookie(SessionCookieName)
 		if err != nil || cookie == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": i18n.Text(i18n.LocaleFromRequest(c.Request), i18n.MessageNotAuthenticated, nil),
+			})
 			c.Abort()
 			return
 		}
 
 		if !sm.Validate(cookie) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": i18n.Text(i18n.LocaleFromRequest(c.Request), i18n.MessageNotAuthenticated, nil),
+			})
 			c.Abort()
 			return
 		}

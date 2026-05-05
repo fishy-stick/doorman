@@ -1,4 +1,6 @@
 import { ApiError } from '../utils/errors'
+import { getLocale } from '../i18n/locale'
+import { translateForLocale } from '../i18n/messages'
 
 type UnauthorizedHandler = (() => void) | null
 
@@ -23,6 +25,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     headers,
   }
 
+  headers.set('X-Doorman-Locale', getLocale())
+
   if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json')
     init.body = JSON.stringify(options.body)
@@ -32,7 +36,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const payload = await parsePayload(response)
 
   if (!response.ok) {
-    const message = extractErrorMessage(payload, response.statusText || 'Request failed')
+    const message = extractErrorMessage(payload, translateForLocale(getLocale(), 'feedback.requestFailed'))
     const error = new ApiError(response.status, message, payload)
 
     if (response.status === 401 && !options.skipUnauthorized) {

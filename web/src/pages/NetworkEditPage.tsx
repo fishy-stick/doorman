@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useI18n } from '../i18n'
 import { getNetwork, updateNetwork, type NetworkDetail } from '../api/networks'
 import { NetworkForm } from '../components/forms/NetworkForm'
 import { ErrorState } from '../components/feedback/ErrorState'
 import { LoadingState } from '../components/feedback/LoadingState'
+import type { TranslationKey, TranslationValues } from '../i18n/messages'
 import {
   emptyDNSPodConfig,
   isSupportedProvider,
@@ -15,12 +17,16 @@ import { errorMessage, isApiError } from '../utils/errors'
 type LoadedFormState = {
   initialValues: NetworkFormValues
   initialRawConfig?: string
-  compatibilityReason?: string
+  compatibilityReason?: {
+    key: TranslationKey
+    values?: TranslationValues
+  }
   networkName: string
 }
 
 export function NetworkEditPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { networkId } = useParams()
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -50,7 +56,7 @@ export function NetworkEditPage() {
           return
         }
 
-        setMessage(errorMessage(error, 'Unable to load the network.'))
+        setMessage(errorMessage(error, t('networkEdit.unableLoad')))
       })
       .finally(() => {
         if (active) {
@@ -61,38 +67,48 @@ export function NetworkEditPage() {
     return () => {
       active = false
     }
-  }, [networkId])
+  }, [networkId, t])
 
   if (!networkId) {
-    return <ErrorState title="Network not found" message="The requested network does not exist." />
+    return <ErrorState title={t('networkEdit.notFoundTitle')} message={t('networkEdit.notFoundMessage')} />
   }
 
   if (loading) {
-    return <LoadingState label="Loading network" />
+    return <LoadingState label={t('networkEdit.loading')} />
   }
 
   if (notFound) {
-    return <ErrorState title="Network not found" message="The requested network does not exist." />
+    return <ErrorState title={t('networkEdit.notFoundTitle')} message={t('networkEdit.notFoundMessage')} />
   }
 
   if (message || !formState || !networkId) {
-    return <ErrorState message={message || 'Unable to load the network.'} actionLabel="Retry" onAction={() => window.location.reload()} />
+    return (
+      <ErrorState
+        message={message || t('networkEdit.unableLoad')}
+        actionLabel={t('common.retry')}
+        onAction={() => window.location.reload()}
+      />
+    )
   }
 
   return (
     <section>
       <div className="page-header">
         <div>
-          <h1>Edit Network</h1>
-          <p>Update {formState.networkName} without changing its history.</p>
+          <h1>{t('networkEdit.title')}</h1>
+          <p>{t('networkEdit.subtitle', { name: formState.networkName })}</p>
         </div>
       </div>
       <NetworkForm
         initialValues={formState.initialValues}
         initialRawConfig={formState.initialRawConfig}
-        compatibilityReason={formState.compatibilityReason}
-        submitLabel="Save Changes"
-        submittingLabel="Saving..."
+        compatibilityReason={
+          formState.compatibilityReason
+            ? t(formState.compatibilityReason.key, formState.compatibilityReason.values)
+            : undefined
+        }
+        submitLabel={t('networkEdit.save')}
+        submittingLabel={t('networkEdit.saving')}
         cancelTo={`/admin/networks/${networkId}`}
         onSubmit={async (payload) => {
           await updateNetwork(networkId, payload)
@@ -115,7 +131,10 @@ function buildFormState(network: NetworkDetail): LoadedFormState {
     return {
       initialValues,
       initialRawConfig: network.ddns_config,
-      compatibilityReason: `Current provider "${network.ddns_type}" is not supported by this frontend. Choose a supported provider before saving.`,
+      compatibilityReason: {
+        key: 'networkEdit.unsupportedProviderReason',
+        values: { provider: network.ddns_type },
+      },
       networkName: network.name,
     }
   }
@@ -134,7 +153,7 @@ function buildFormState(network: NetworkDetail): LoadedFormState {
     return {
       initialValues,
       initialRawConfig: parsed.raw,
-      compatibilityReason: parsed.reason,
+      compatibilityReason: { key: parsed.reasonKey },
       networkName: network.name,
     }
   }

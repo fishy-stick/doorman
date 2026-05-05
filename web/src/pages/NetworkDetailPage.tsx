@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useI18n } from '../i18n'
 import { deleteNetwork, getNetwork, regenerateNetworkToken, type NetworkDetail } from '../api/networks'
 import { Badge } from '../components/data-display/Badge'
 import { DdnsStatusBadge } from '../components/data-display/DdnsStatusBadge'
@@ -11,6 +12,7 @@ import { errorMessage, isApiError } from '../utils/errors'
 
 export function NetworkDetailPage() {
   const navigate = useNavigate()
+  const { locale, t } = useI18n()
   const { networkId } = useParams()
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -43,7 +45,7 @@ export function NetworkDetailPage() {
           return
         }
 
-        setMessage(errorMessage(error, 'Unable to load the network.'))
+        setMessage(errorMessage(error, t('networkDetail.unableLoad')))
       })
       .finally(() => {
         if (active) {
@@ -54,14 +56,14 @@ export function NetworkDetailPage() {
     return () => {
       active = false
     }
-  }, [networkId])
+  }, [networkId, t])
 
   async function handleDelete() {
     if (!networkId || !network) {
       return
     }
 
-    const confirmed = window.confirm(`Delete network "${network.name}"? This also removes its knock history.`)
+    const confirmed = window.confirm(t('networkDetail.deleteConfirm', { name: network.name }))
     if (!confirmed) {
       return
     }
@@ -73,17 +75,29 @@ export function NetworkDetailPage() {
       await deleteNetwork(networkId)
       navigate('/admin/networks', { replace: true })
     } catch (error) {
-      setMessage(errorMessage(error, 'Unable to delete the network.'))
+      setMessage(errorMessage(error, t('networkDetail.unableDelete')))
       setDeleting(false)
     }
   }
 
-  async function handleCopy(value: string, label: string) {
+  async function handleCopy(value: string, kind: 'token' | 'curl' | 'crontab') {
     try {
       await navigator.clipboard.writeText(value)
-      setCopyMessage(`${label} copied.`)
+      setCopyMessage(
+        kind === 'token'
+          ? t('networkDetail.copyTokenSuccess')
+          : kind === 'curl'
+            ? t('networkDetail.copyCurlSuccess')
+            : t('networkDetail.copyCrontabSuccess'),
+      )
     } catch {
-      setCopyMessage(`Unable to copy ${label.toLowerCase()}.`)
+      setCopyMessage(
+        kind === 'token'
+          ? t('networkDetail.copyTokenFailure')
+          : kind === 'curl'
+            ? t('networkDetail.copyCurlFailure')
+            : t('networkDetail.copyCrontabFailure'),
+      )
     }
   }
 
@@ -93,7 +107,7 @@ export function NetworkDetailPage() {
     }
 
     const confirmed = window.confirm(
-      `Regenerate token for "${network.name}"? Existing clients using the current token will stop working until their commands are updated.`,
+      t('networkDetail.regenerateConfirm', { name: network.name }),
     )
     if (!confirmed) {
       return
@@ -106,32 +120,32 @@ export function NetworkDetailPage() {
     try {
       const updated = await regenerateNetworkToken(networkId)
       setNetwork(updated)
-      setCopyMessage('Token regenerated. Update any clients that use the old command.')
+      setCopyMessage(t('networkDetail.regenerateSuccess'))
     } catch (error) {
-      setMessage(errorMessage(error, 'Unable to regenerate token.'))
+      setMessage(errorMessage(error, t('networkDetail.unableRegenerate')))
     } finally {
       setRegeneratingToken(false)
     }
   }
 
   if (!networkId) {
-    return <ErrorState title="Network not found" message="The requested network does not exist." />
+    return <ErrorState title={t('networkDetail.notFoundTitle')} message={t('networkDetail.notFoundMessage')} />
   }
 
   if (loading) {
-    return <LoadingState label="Loading network detail" />
+    return <LoadingState label={t('networkDetail.loading')} />
   }
 
   if (notFound) {
-    return <ErrorState title="Network not found" message="The requested network does not exist." />
+    return <ErrorState title={t('networkDetail.notFoundTitle')} message={t('networkDetail.notFoundMessage')} />
   }
 
   if (message && !network) {
-    return <ErrorState message={message} actionLabel="Retry" onAction={() => window.location.reload()} />
+    return <ErrorState message={message} actionLabel={t('common.retry')} onAction={() => window.location.reload()} />
   }
 
   if (!network) {
-    return <ErrorState message="Unable to load the network." />
+    return <ErrorState message={t('networkDetail.unableLoad')} />
   }
 
   return (
@@ -139,17 +153,17 @@ export function NetworkDetailPage() {
       <div className="page-header">
         <div>
           <h1>{network.name}</h1>
-          <p>Inspect the current IP snapshot, DDNS behavior, and generated client commands.</p>
+          <p>{t('networkDetail.subtitle')}</p>
         </div>
         <div className="page-actions">
           <Link className="button button-secondary" to={`/admin/networks/${network.id}/edit`}>
-            Edit
+            {t('common.edit')}
           </Link>
           <Link className="button button-secondary" to={`/admin/networks/${network.id}/history`}>
-            History
+            {t('common.history')}
           </Link>
           <button className="button button-secondary button-danger" type="button" disabled={deleting} onClick={handleDelete}>
-            {deleting ? 'Deleting...' : 'Delete'}
+            {deleting ? t('common.deleting') : t('common.delete')}
           </button>
         </div>
       </div>
@@ -160,14 +174,14 @@ export function NetworkDetailPage() {
       <section className="page-panel">
         <FieldList
           items={[
-            { label: 'Name', value: network.name },
+            { label: t('common.name'), value: network.name },
             {
-              label: 'Token',
+              label: t('common.token'),
               value: (
                 <div className="inline-actions">
                   <span className="mono">{network.token}</span>
                   <button className="button button-secondary" type="button" onClick={() => handleCopy(network.token, 'token')}>
-                    Copy
+                    {t('common.copy')}
                   </button>
                   <button
                     className="button button-secondary button-danger"
@@ -175,20 +189,24 @@ export function NetworkDetailPage() {
                     disabled={regeneratingToken}
                     onClick={handleRegenerateToken}
                   >
-                    {regeneratingToken ? 'Regenerating...' : 'Regenerate'}
+                    {regeneratingToken ? t('common.regenerating') : t('common.regenerate')}
                   </button>
                 </div>
               ),
             },
             {
-              label: 'DDNS',
-              value: <Badge tone={network.ddns_enabled ? 'success' : 'neutral'}>{network.ddns_enabled ? 'Enabled' : 'Disabled'}</Badge>,
+              label: t('common.ddns'),
+              value: (
+                <Badge tone={network.ddns_enabled ? 'success' : 'neutral'}>
+                  {network.ddns_enabled ? t('common.enabled') : t('common.disabled')}
+                </Badge>
+              ),
             },
-            { label: 'Provider', value: network.ddns_type || 'None' },
-            { label: 'Current IP', value: network.current_ip ?? 'Unknown', mono: true },
-            { label: 'Previous IP', value: network.previous_ip ?? 'None', mono: true },
-            { label: 'Last Knock', value: formatDate(network.last_knock) },
-            { label: 'Latest DDNS Status', value: <DdnsStatusBadge status={network.ddns_status} /> },
+            { label: t('common.provider'), value: network.ddns_type || t('common.none') },
+            { label: t('common.currentIp'), value: network.current_ip ?? t('common.unknown'), mono: true },
+            { label: t('common.previousIp'), value: network.previous_ip ?? t('common.none'), mono: true },
+            { label: t('common.lastKnock'), value: formatDate(network.last_knock, locale, t('common.never')) },
+            { label: t('networkDetail.latestDdnsStatus'), value: <DdnsStatusBadge status={network.ddns_status} /> },
           ]}
         />
       </section>
@@ -196,22 +214,22 @@ export function NetworkDetailPage() {
       <section className="page-panel command-panel">
         <div className="section-heading">
           <div>
-            <h2>Client Commands</h2>
-            <p>Use these as a starting point, then replace `your-server:8080` with the real host and port.</p>
+            <h2>{t('networkDetail.clientCommandsTitle')}</h2>
+            <p>{t('networkDetail.clientCommandsDescription')}</p>
           </div>
         </div>
 
         <div className="form-message form-message-info">
-          <strong>Host placeholder</strong>
-          <p>The generated commands still use `your-server:8080`. Update that part before deploying them.</p>
+          <strong>{t('networkDetail.hostPlaceholderTitle')}</strong>
+          <p>{t('networkDetail.hostPlaceholderMessage')}</p>
         </div>
 
         <div className="command-grid">
           <article className="command-card">
             <div className="command-card-header">
               <h3>curl</h3>
-              <button className="button button-secondary" type="button" onClick={() => handleCopy(network.commands.curl, 'curl command')}>
-                Copy
+              <button className="button button-secondary" type="button" onClick={() => handleCopy(network.commands.curl, 'curl')}>
+                {t('common.copy')}
               </button>
             </div>
             <pre className="code-block">
@@ -222,8 +240,8 @@ export function NetworkDetailPage() {
           <article className="command-card">
             <div className="command-card-header">
               <h3>crontab</h3>
-              <button className="button button-secondary" type="button" onClick={() => handleCopy(network.commands.crontab, 'crontab command')}>
-                Copy
+              <button className="button button-secondary" type="button" onClick={() => handleCopy(network.commands.crontab, 'crontab')}>
+                {t('common.copy')}
               </button>
             </div>
             <pre className="code-block">

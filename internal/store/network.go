@@ -2,7 +2,6 @@ package store
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -111,7 +110,7 @@ func (s *Store) UpdateNetwork(n *Network) error {
 func (s *Store) UpdateNetworkToken(id int64, token string) error {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return fmt.Errorf("%w: token is required", ErrInvalidNetwork)
+		return newInvalidNetworkError(NetworkErrorCodeTokenRequired, nil)
 	}
 
 	tokenExists, err := s.networkFieldExists("token", token, id)
@@ -119,7 +118,7 @@ func (s *Store) UpdateNetworkToken(id int64, token string) error {
 		return err
 	}
 	if tokenExists {
-		return ErrNetworkTokenConflict
+		return newNetworkConflictError(ErrNetworkTokenConflict, NetworkErrorCodeTokenConflict, nil)
 	}
 
 	return s.db.Model(&Network{}).
@@ -156,13 +155,13 @@ func normalizeNetwork(n *Network) {
 
 func validateNetwork(n *Network) error {
 	if n == nil {
-		return fmt.Errorf("%w: network is required", ErrInvalidNetwork)
+		return newInvalidNetworkError(NetworkErrorCodeNetworkRequired, nil)
 	}
 	if n.Name == "" {
-		return fmt.Errorf("%w: name is required", ErrInvalidNetwork)
+		return newInvalidNetworkError(NetworkErrorCodeNameRequired, nil)
 	}
 	if n.Token == "" {
-		return fmt.Errorf("%w: token is required", ErrInvalidNetwork)
+		return newInvalidNetworkError(NetworkErrorCodeTokenRequired, nil)
 	}
 	if err := validateDDNSSettings(n.DDNSEnabled, n.DDNSType, n.DDNSConfig); err != nil {
 		return err
@@ -177,7 +176,7 @@ func (s *Store) ensureNetworkUniqueFields(n *Network) error {
 		return err
 	}
 	if nameExists {
-		return ErrNetworkNameConflict
+		return newNetworkConflictError(ErrNetworkNameConflict, NetworkErrorCodeNameConflict, nil)
 	}
 
 	tokenExists, err := s.networkFieldExists("token", n.Token, n.ID)
@@ -185,7 +184,7 @@ func (s *Store) ensureNetworkUniqueFields(n *Network) error {
 		return err
 	}
 	if tokenExists {
-		return ErrNetworkTokenConflict
+		return newNetworkConflictError(ErrNetworkTokenConflict, NetworkErrorCodeTokenConflict, nil)
 	}
 
 	return nil

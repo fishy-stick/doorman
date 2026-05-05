@@ -1,3 +1,6 @@
+import { translateForLocale } from '../i18n/messages'
+import { getLocale } from '../i18n/locale'
+
 export class ApiError extends Error {
   status: number
   data: unknown
@@ -18,7 +21,7 @@ export function isUnauthorized(error: unknown): boolean {
   return isApiError(error) && error.status === 401
 }
 
-export function errorMessage(error: unknown, fallback = 'Something went wrong'): string {
+export function errorMessage(error: unknown, fallback = translateForLocale(getLocale(), 'feedback.requestFailed')): string {
   if (error instanceof Error && error.message.trim() !== '') {
     return error.message
   }

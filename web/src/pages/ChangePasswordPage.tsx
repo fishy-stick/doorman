@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '../i18n'
 import { changePassword } from '../api/auth'
 import { errorMessage } from '../utils/errors'
 
@@ -8,6 +9,7 @@ type FieldErrors = Partial<Record<'oldPassword' | 'newPassword' | 'confirmPasswo
 
 export function ChangePasswordPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -35,15 +37,15 @@ export function ChangePasswordPage() {
 
     const nextErrors: FieldErrors = {}
     if (oldPassword.trim() === '') {
-      nextErrors.oldPassword = 'Current password is required.'
+      nextErrors.oldPassword = t('changePassword.currentPasswordRequired')
     }
     if (newPassword.trim() === '') {
-      nextErrors.newPassword = 'New password is required.'
+      nextErrors.newPassword = t('changePassword.newPasswordRequired')
     }
     if (confirmPassword.trim() === '') {
-      nextErrors.confirmPassword = 'Please confirm the new password.'
+      nextErrors.confirmPassword = t('changePassword.confirmPasswordRequired')
     } else if (confirmPassword !== newPassword) {
-      nextErrors.confirmPassword = 'The new passwords do not match.'
+      nextErrors.confirmPassword = t('changePassword.passwordsMismatch')
     }
 
     setErrors(nextErrors)
@@ -57,13 +59,13 @@ export function ChangePasswordPage() {
     setSubmitting(true)
 
     try {
-      const result = await changePassword(oldPassword, newPassword)
-      setSuccessMessage(`${result.message}. Redirecting to login...`)
+      await changePassword(oldPassword, newPassword)
+      setSuccessMessage(t('changePassword.successRedirecting'))
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (error) {
-      setMessage(errorMessage(error, 'Unable to change the password.'))
+      setMessage(errorMessage(error, t('changePassword.unableChange')))
     } finally {
       setSubmitting(false)
     }
@@ -73,8 +75,8 @@ export function ChangePasswordPage() {
     <section>
       <div className="page-header">
         <div>
-          <h1>Change Password</h1>
-          <p>Update the administrator password. Saving signs out every active session.</p>
+          <h1>{t('changePassword.title')}</h1>
+          <p>{t('changePassword.subtitle')}</p>
         </div>
       </div>
 
@@ -82,14 +84,14 @@ export function ChangePasswordPage() {
         <section className="page-panel">
           <div className="section-heading">
             <div>
-              <h2>Password</h2>
-              <p>Use the current password once, then confirm the replacement before Doorman resets the session.</p>
+              <h2>{t('changePassword.sectionTitle')}</h2>
+              <p>{t('changePassword.sectionDescription')}</p>
             </div>
           </div>
 
           <div className="form-grid">
             <label className="field">
-              <span className="field-label">Current Password</span>
+              <span className="field-label">{t('changePassword.currentPassword')}</span>
               <input
                 autoComplete="current-password"
                 className="field-input"
@@ -102,7 +104,7 @@ export function ChangePasswordPage() {
             </label>
 
             <label className="field">
-              <span className="field-label">New Password</span>
+              <span className="field-label">{t('changePassword.newPassword')}</span>
               <input
                 autoComplete="new-password"
                 className="field-input"
@@ -115,7 +117,7 @@ export function ChangePasswordPage() {
             </label>
 
             <label className="field field-span-2">
-              <span className="field-label">Confirm New Password</span>
+              <span className="field-label">{t('changePassword.confirmNewPassword')}</span>
               <input
                 autoComplete="new-password"
                 className="field-input"
@@ -134,7 +136,7 @@ export function ChangePasswordPage() {
 
         <div className="page-actions">
           <button className="button" type="submit" disabled={submitting || Boolean(successMessage)}>
-            {submitting ? 'Saving...' : 'Update Password'}
+            {submitting ? t('changePassword.saving') : t('changePassword.updatePassword')}
           </button>
         </div>
       </form>

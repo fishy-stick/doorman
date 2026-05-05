@@ -1,6 +1,8 @@
-export function formatDate(value: string | null | undefined): string {
+import type { Locale } from '../i18n/locale'
+
+export function formatDate(value: string | null | undefined, locale: Locale, emptyLabel: string): string {
   if (!value) {
-    return 'Never'
+    return emptyLabel
   }
 
   const date = new Date(value)
@@ -8,7 +10,7 @@ export function formatDate(value: string | null | undefined): string {
     return value
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)

@@ -1,3 +1,5 @@
+import { useI18n } from '../../i18n'
+
 type ErrorStateProps = {
   title?: string
   message: string
@@ -5,11 +7,13 @@ type ErrorStateProps = {
   onAction?: () => void
 }
 
-export function ErrorState({ title = 'Request failed', message, actionLabel, onAction }: ErrorStateProps) {
+export function ErrorState({ title, message, actionLabel, onAction }: ErrorStateProps) {
+  const { t } = useI18n()
+
   return (
     <div className="state state-error" role="alert">
       <div>
-        <h2>{title}</h2>
+        <h2>{title ?? t('feedback.requestFailed')}</h2>
         <p>{message}</p>
       </div>
       {actionLabel && onAction ? (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '../i18n'
 import { checkSession } from '../api/auth'
 import { ErrorState } from '../components/feedback/ErrorState'
 import { LoadingState } from '../components/feedback/LoadingState'
@@ -7,6 +8,7 @@ import { errorMessage, isUnauthorized } from '../utils/errors'
 
 export function AdminEntryPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -28,21 +30,21 @@ export function AdminEntryPage() {
           return
         }
 
-        setMessage(errorMessage(error, 'Unable to check the admin session.'))
+        setMessage(errorMessage(error, t('adminEntry.unableCheckSession')))
       })
 
     return () => {
       active = false
     }
-  }, [navigate])
+  }, [navigate, t])
 
   if (message) {
     return (
       <main className="screen">
-        <ErrorState message={message} actionLabel="Retry" onAction={() => window.location.reload()} />
+        <ErrorState message={message} actionLabel={t('common.retry')} onAction={() => window.location.reload()} />
       </main>
     )
   }
 
-  return <LoadingState label="Opening admin" />
+  return <LoadingState label={t('adminEntry.openingAdmin')} />
 }

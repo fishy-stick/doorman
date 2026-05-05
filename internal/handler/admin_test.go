@@ -109,8 +109,31 @@ func TestSessionReturnsUnauthorizedWithoutValidSession(t *testing.T) {
 	if resp.Code != http.StatusUnauthorized {
 		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusUnauthorized, resp.Body.String())
 	}
-	if body := resp.Body.String(); body != "{\"error\":\"not authenticated\"}" {
-		t.Fatalf("body = %s, want %s", body, `{"error":"not authenticated"}`)
+	if body := resp.Body.String(); body != "{\"error\":\"Not authenticated.\"}" {
+		t.Fatalf("body = %s, want %s", body, `{"error":"Not authenticated."}`)
+	}
+}
+
+func TestSessionReturnsLocalizedUnauthorizedMessage(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	sm := auth.NewSessionManager()
+
+	h := NewAdminHandler(s, sm)
+	router := gin.New()
+	protected := router.Group("/admin/api")
+	protected.Use(auth.AdminAuth(sm))
+	protected.GET("/session", h.Session)
+
+	resp := performRequest(t, router, http.MethodGet, "/admin/api/session", "", "127.0.0.1:1234", map[string]string{
+		"X-Doorman-Locale": "zh-CN",
+	})
+	if resp.Code != http.StatusUnauthorized {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusUnauthorized, resp.Body.String())
+	}
+	if body := resp.Body.String(); body != "{\"error\":\"未登录。\"}" {
+		t.Fatalf("body = %s, want %s", body, `{"error":"未登录。"}`)
 	}
 }
 
@@ -223,6 +246,9 @@ func TestCreateNetworkReturnsBadRequestForUnsupportedProvider(t *testing.T) {
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
 	}
+	if body := resp.Body.String(); body != "{\"error\":\"Unsupported DDNS provider \\\"cloudflare\\\". Supported providers: DNSPod.\"}" {
+		t.Fatalf("body = %s", body)
+	}
 }
 
 func TestCreateNetworkReturnsBadRequestForInvalidDDNSConfigShape(t *testing.T) {
@@ -238,6 +264,34 @@ func TestCreateNetworkReturnsBadRequestForInvalidDDNSConfigShape(t *testing.T) {
 	})
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
+	}
+}
+
+func TestCreateNetworkReturnsLocalizedValidationError(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	h := NewAdminHandler(s, auth.NewSessionManager())
+	router := gin.New()
+	router.POST("/admin/api/networks", h.CreateNetwork)
+
+	resp := performRequest(
+		t,
+		router,
+		http.MethodPost,
+		"/admin/api/networks",
+		`{"name":"home","ddns_enabled":true,"ddns_type":"dnspod","ddns_config":"{\"domain\":\"example.com\",\"record\":\"\",\"id\":\"abc\",\"token\":\"def\"}"}`,
+		"127.0.0.1:1234",
+		map[string]string{
+			"Content-Type":     "application/json",
+			"X-Doorman-Locale": "zh-CN",
+		},
+	)
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusBadRequest, resp.Body.String())
+	}
+	if body := resp.Body.String(); body != "{\"error\":\"DNSPod 配置中的“record”字段不能为空。\"}" {
+		t.Fatalf("body = %s, want %s", body, `{"error":"DNSPod 配置中的“record”字段不能为空。"}`)
 	}
 }
 

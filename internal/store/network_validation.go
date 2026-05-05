@@ -2,7 +2,6 @@ package store
 
 import (
 	"encoding/json"
-	"fmt"
 )
 
 const supportedDDNSProviderDNSPod = "dnspod"
@@ -14,7 +13,7 @@ func validateDDNSSettings(enabled bool, providerType string, configStr string) e
 	}
 
 	if enabled && providerType == "" {
-		return fmt.Errorf("%w: ddns_type is required when ddns is enabled", ErrInvalidNetwork)
+		return newInvalidNetworkError(NetworkErrorCodeDDNSTypeRequired, nil)
 	}
 
 	if providerType == "" {
@@ -22,26 +21,30 @@ func validateDDNSSettings(enabled bool, providerType string, configStr string) e
 	}
 
 	if !isSupportedDDNSProvider(providerType) {
-		return fmt.Errorf("%w: unsupported ddns_type %q; supported providers: %s", ErrInvalidNetwork, providerType, supportedDDNSProviderDNSPod)
+		return newInvalidNetworkError(NetworkErrorCodeDDNSTypeUnsupported, map[string]string{
+			"provider": providerType,
+		})
 	}
 
 	switch providerType {
 	case supportedDDNSProviderDNSPod:
 		return validateDNSPodConfig(config)
 	default:
-		return fmt.Errorf("%w: unsupported ddns_type %q; supported providers: %s", ErrInvalidNetwork, providerType, supportedDDNSProviderDNSPod)
+		return newInvalidNetworkError(NetworkErrorCodeDDNSTypeUnsupported, map[string]string{
+			"provider": providerType,
+		})
 	}
 }
 
 func decodeDDNSConfigObject(configStr string) (map[string]any, error) {
 	var value any
 	if err := json.Unmarshal([]byte(configStr), &value); err != nil {
-		return nil, fmt.Errorf("%w: ddns_config must be valid JSON", ErrInvalidNetwork)
+		return nil, newInvalidNetworkError(NetworkErrorCodeDDNSConfigInvalidJSON, nil)
 	}
 
 	config, ok := value.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("%w: ddns_config must be a JSON object", ErrInvalidNetwork)
+		return nil, newInvalidNetworkError(NetworkErrorCodeDDNSConfigNotObject, nil)
 	}
 
 	return config, nil
@@ -50,7 +53,9 @@ func decodeDDNSConfigObject(configStr string) (map[string]any, error) {
 func validateDNSPodConfig(config map[string]any) error {
 	for _, field := range []string{"domain", "record", "id", "token"} {
 		if !hasNonEmptyStringField(config, field) {
-			return fmt.Errorf("%w: ddns_config for dnspod requires non-empty string field %q", ErrInvalidNetwork, field)
+			return newInvalidNetworkError(NetworkErrorCodeDDNSConfigFieldMissing, map[string]string{
+				"field": field,
+			})
 		}
 	}
 

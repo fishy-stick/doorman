@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { checkSession, logout } from '../../api/auth'
 import { setUnauthorizedHandler } from '../../api/client'
+import { useI18n } from '../../i18n'
 import { ErrorState } from '../feedback/ErrorState'
 import { LoadingState } from '../feedback/LoadingState'
 import { errorMessage, isUnauthorized } from '../../utils/errors'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
 export function ProtectedLayout() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [status, setStatus] = useState<'checking' | 'ready' | 'error'>('checking')
   const [message, setMessage] = useState('')
 
@@ -34,7 +37,7 @@ export function ProtectedLayout() {
           return
         }
 
-        setMessage(errorMessage(error, 'Unable to verify the admin session.'))
+        setMessage(errorMessage(error, t('adminEntry.unableCheckSession')))
         setStatus('error')
       })
 
@@ -42,10 +45,10 @@ export function ProtectedLayout() {
       active = false
       setUnauthorizedHandler(null)
     }
-  }, [navigate])
+  }, [navigate, t])
 
   if (status === 'checking') {
-    return <LoadingState label="Checking session" />
+    return <LoadingState label={t('login.checkingSession')} />
   }
 
   if (status === 'error') {
@@ -53,7 +56,7 @@ export function ProtectedLayout() {
       <main className="screen">
         <ErrorState
           message={message}
-          actionLabel="Retry"
+          actionLabel={t('common.retry')}
           onAction={() => {
             setStatus('checking')
             window.location.reload()
@@ -68,6 +71,7 @@ export function ProtectedLayout() {
 
 function AdminShell() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [logoutError, setLogoutError] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -79,7 +83,7 @@ function AdminShell() {
       await logout()
       navigate('/admin/login', { replace: true })
     } catch (error) {
-      setLogoutError(errorMessage(error, 'Logout failed.'))
+      setLogoutError(errorMessage(error, t('layout.logoutFailed')))
       navigate('/admin/login', { replace: true })
     } finally {
       setLoggingOut(false)
@@ -93,14 +97,15 @@ function AdminShell() {
           <span className="brand-mark">D</span>
           <span>
             <strong>Doorman</strong>
-            <small>Network admin</small>
+            <small>{t('layout.networkAdmin')}</small>
           </span>
         </NavLink>
-        <nav className="nav-links" aria-label="Admin navigation">
-          <NavLink to="/admin/networks">Networks</NavLink>
-          <NavLink to="/admin/settings/password">Change Password</NavLink>
+        <nav className="nav-links" aria-label={t('layout.adminNavigation')}>
+          <NavLink to="/admin/networks">{t('common.networks')}</NavLink>
+          <NavLink to="/admin/settings/password">{t('layout.changePassword')}</NavLink>
+          <LanguageSwitcher />
           <button className="nav-button" type="button" onClick={handleLogout} disabled={loggingOut}>
-            {loggingOut ? 'Logging out' : 'Logout'}
+            {loggingOut ? t('layout.loggingOut') : t('layout.logout')}
           </button>
         </nav>
       </header>

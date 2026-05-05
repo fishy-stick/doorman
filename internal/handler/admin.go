@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"doorman/internal/auth"
+	"doorman/internal/i18n"
 	"doorman/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -28,29 +29,29 @@ func (h *AdminHandler) Login(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidRequest, nil)
 		return
 	}
 
 	valid, err := h.store.VerifyPassword(req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageInternalServerError, nil)
 		return
 	}
 
 	if !valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid password"})
+		writeLocalizedError(c, http.StatusUnauthorized, i18n.MessageInvalidPassword, nil)
 		return
 	}
 
 	token, err := h.sm.Create()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedCreateSession, nil)
 		return
 	}
 
 	c.SetCookie(auth.SessionCookieName, token, int(auth.SessionDuration.Seconds()), "/", "", false, true)
-	c.JSON(http.StatusOK, gin.H{"message": "login successful"})
+	writeLocalizedMessage(c, http.StatusOK, i18n.MessageLoginSuccessful, nil)
 }
 
 func (h *AdminHandler) Logout(c *gin.Context) {
@@ -60,7 +61,7 @@ func (h *AdminHandler) Logout(c *gin.Context) {
 	}
 
 	c.SetCookie(auth.SessionCookieName, "", -1, "/", "", false, true)
-	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
+	writeLocalizedMessage(c, http.StatusOK, i18n.MessageLogoutSuccessful, nil)
 }
 
 func (h *AdminHandler) Session(c *gin.Context) {
@@ -74,34 +75,34 @@ func (h *AdminHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidRequest, nil)
 		return
 	}
 
 	valid, err := h.store.VerifyPassword(req.OldPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageInternalServerError, nil)
 		return
 	}
 
 	if !valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid old password"})
+		writeLocalizedError(c, http.StatusUnauthorized, i18n.MessageInvalidOldPassword, nil)
 		return
 	}
 
 	if err := h.store.UpdatePassword(req.NewPassword); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update password"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedUpdatePassword, nil)
 		return
 	}
 
 	h.sm.Reset()
-	c.JSON(http.StatusOK, gin.H{"message": "password updated"})
+	writeLocalizedMessage(c, http.StatusOK, i18n.MessagePasswordUpdated, nil)
 }
 
 func (h *AdminHandler) ListNetworks(c *gin.Context) {
 	networks, err := h.store.ListNetworks()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list networks"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedListNetworks, nil)
 		return
 	}
 
@@ -111,18 +112,18 @@ func (h *AdminHandler) ListNetworks(c *gin.Context) {
 func (h *AdminHandler) GetNetwork(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid network id"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidNetworkID, nil)
 		return
 	}
 
 	network, err := h.store.GetNetwork(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedGetNetwork, nil)
 		return
 	}
 
 	if network == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "network not found"})
+		writeLocalizedError(c, http.StatusNotFound, i18n.MessageNetworkNotFound, nil)
 		return
 	}
 
@@ -164,14 +165,14 @@ func (h *AdminHandler) respondNetworkDetail(c *gin.Context, status int, network 
 func (h *AdminHandler) CreateNetwork(c *gin.Context) {
 	var network store.Network
 	if err := c.ShouldBindJSON(&network); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidRequest, nil)
 		return
 	}
 	network.ID = 0
 	network.Token = uuid.NewString()
 
 	if err := h.store.CreateNetwork(&network); err != nil {
-		h.respondStoreError(c, err, "failed to create network")
+		h.respondStoreError(c, err, i18n.MessageFailedCreateNetwork)
 		return
 	}
 
@@ -181,42 +182,42 @@ func (h *AdminHandler) CreateNetwork(c *gin.Context) {
 func (h *AdminHandler) UpdateNetwork(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid network id"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidNetworkID, nil)
 		return
 	}
 
 	existing, err := h.store.GetNetwork(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedGetNetwork, nil)
 		return
 	}
 
 	if existing == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "network not found"})
+		writeLocalizedError(c, http.StatusNotFound, i18n.MessageNetworkNotFound, nil)
 		return
 	}
 
 	var network store.Network
 	if err := c.ShouldBindJSON(&network); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidRequest, nil)
 		return
 	}
 
 	network.ID = id
 	network.Token = existing.Token
 	if err := h.store.UpdateNetwork(&network); err != nil {
-		h.respondStoreError(c, err, "failed to update network")
+		h.respondStoreError(c, err, i18n.MessageFailedUpdateNetwork)
 		return
 	}
 
 	updated, err := h.store.GetNetwork(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedGetNetwork, nil)
 		return
 	}
 
 	if updated == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "network disappeared after update"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageNetworkDisappearedAfterSave, nil)
 		return
 	}
 
@@ -226,29 +227,29 @@ func (h *AdminHandler) UpdateNetwork(c *gin.Context) {
 func (h *AdminHandler) RegenerateNetworkToken(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid network id"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidNetworkID, nil)
 		return
 	}
 
 	existing, err := h.store.GetNetwork(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedGetNetwork, nil)
 		return
 	}
 
 	if existing == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "network not found"})
+		writeLocalizedError(c, http.StatusNotFound, i18n.MessageNetworkNotFound, nil)
 		return
 	}
 
 	if err := h.store.UpdateNetworkToken(id, uuid.NewString()); err != nil {
-		h.respondStoreError(c, err, "failed to regenerate token")
+		h.respondStoreError(c, err, i18n.MessageFailedRegenerateToken)
 		return
 	}
 
 	updated, err := h.store.GetNetwork(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedGetNetwork, nil)
 		return
 	}
 
@@ -258,33 +259,33 @@ func (h *AdminHandler) RegenerateNetworkToken(c *gin.Context) {
 func (h *AdminHandler) DeleteNetwork(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid network id"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidNetworkID, nil)
 		return
 	}
 
 	existing, err := h.store.GetNetwork(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedGetNetwork, nil)
 		return
 	}
 
 	if existing == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "network not found"})
+		writeLocalizedError(c, http.StatusNotFound, i18n.MessageNetworkNotFound, nil)
 		return
 	}
 
 	if err := h.store.DeleteNetwork(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete network"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedDeleteNetwork, nil)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "network deleted"})
+	writeLocalizedMessage(c, http.StatusOK, i18n.MessageNetworkDeleted, nil)
 }
 
 func (h *AdminHandler) ListKnocks(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid network id"})
+		writeLocalizedError(c, http.StatusBadRequest, i18n.MessageInvalidNetworkID, nil)
 		return
 	}
 
@@ -300,7 +301,7 @@ func (h *AdminHandler) ListKnocks(c *gin.Context) {
 
 	knocks, total, err := h.store.ListKnocks(id, page, size)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list knocks"})
+		writeLocalizedError(c, http.StatusInternalServerError, i18n.MessageFailedListKnocks, nil)
 		return
 	}
 
@@ -312,13 +313,15 @@ func (h *AdminHandler) ListKnocks(c *gin.Context) {
 	})
 }
 
-func (h *AdminHandler) respondStoreError(c *gin.Context, err error, defaultMessage string) {
+func (h *AdminHandler) respondStoreError(c *gin.Context, err error, defaultMessage i18n.MessageKey) {
+	locale := localeForContext(c)
+
 	switch {
 	case errors.Is(err, store.ErrInvalidNetwork):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": networkErrorMessage(locale, err)})
 	case errors.Is(err, store.ErrNetworkNameConflict), errors.Is(err, store.ErrNetworkTokenConflict):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": networkErrorMessage(locale, err)})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": defaultMessage})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": i18n.Text(locale, defaultMessage, nil)})
 	}
 }

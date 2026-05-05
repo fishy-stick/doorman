@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { useI18n, type Translator } from '../../i18n'
 import type { NetworkPayload } from '../../api/networks'
 import { errorMessage } from '../../utils/errors'
 import {
@@ -35,6 +36,7 @@ export function NetworkForm({
   cancelTo,
   onSubmit,
 }: NetworkFormProps) {
+  const { t } = useI18n()
   const [values, setValues] = useState(initialValues)
   const [rawConfig, setRawConfig] = useState(initialRawConfig)
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -48,7 +50,7 @@ export function NetworkForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const nextErrors = validateForm(values, rawConfig, compatibilityMode)
+    const nextErrors = validateForm(values, rawConfig, compatibilityMode, t)
     setErrors(nextErrors)
     setSubmitError('')
 
@@ -61,7 +63,7 @@ export function NetworkForm({
     try {
       await onSubmit(buildPayload(values, rawConfig, compatibilityMode))
     } catch (error) {
-      setSubmitError(errorMessage(error, 'Unable to save the network.'))
+      setSubmitError(errorMessage(error, t('networkForm.unableSave')))
     } finally {
       setSubmitting(false)
     }
@@ -72,13 +74,13 @@ export function NetworkForm({
       <section className="page-panel">
         <div className="section-heading">
           <div>
-            <h2>Network Settings</h2>
-            <p>Name the network. Doorman generates the bearer token after creation.</p>
+            <h2>{t('networkForm.sectionTitle')}</h2>
+            <p>{t('networkForm.sectionDescription')}</p>
           </div>
         </div>
         <div className="form-grid">
           <label className="field field-span-2">
-            <span className="field-label">Name</span>
+            <span className="field-label">{t('networkForm.name')}</span>
             <input
               className="field-input"
               name="name"
@@ -96,8 +98,8 @@ export function NetworkForm({
       <section className="page-panel">
         <div className="section-heading">
           <div>
-            <h2>DDNS</h2>
-            <p>Choose whether Doorman should push IP changes to a provider.</p>
+            <h2>{t('networkForm.ddnsTitle')}</h2>
+            <p>{t('networkForm.ddnsDescription')}</p>
           </div>
         </div>
 
@@ -116,14 +118,14 @@ export function NetworkForm({
             disabled={submitting}
           />
           <span>
-            <strong>Enable DDNS updates</strong>
-            <small>When disabled, Doorman still tracks IP history but skips provider updates.</small>
+            <strong>{t('networkForm.enableDdns')}</strong>
+            <small>{t('networkForm.enableDdnsDescription')}</small>
           </span>
         </label>
 
         {showDDNSSettings ? (
           <label className="field">
-            <span className="field-label">Provider</span>
+            <span className="field-label">{t('networkForm.provider')}</span>
             <select
               className="field-select"
               value={values.ddnsType}
@@ -133,7 +135,7 @@ export function NetworkForm({
               }}
               disabled={submitting}
             >
-              <option value="">None</option>
+              <option value="">{t('networkForm.providerNone')}</option>
               <option value="dnspod">DNSPod</option>
             </select>
             {errors.ddnsType ? <span className="field-error">{errors.ddnsType}</span> : null}
@@ -142,16 +144,16 @@ export function NetworkForm({
 
         {showDDNSSettings && compatibilityMode ? (
           <div className="form-message form-message-warning">
-            <strong>Compatibility mode</strong>
+            <strong>{t('networkForm.compatibilityMode')}</strong>
             <p>{compatibilityReason}</p>
-            <p>Edit the raw JSON, then save a supported provider configuration.</p>
+            <p>{t('networkForm.compatibilitySaveHint')}</p>
           </div>
         ) : null}
 
         {showDNSPodFields && !compatibilityMode ? (
           <div className="form-grid">
             <label className="field">
-              <span className="field-label">Domain</span>
+              <span className="field-label">{t('networkForm.domain')}</span>
               <input
                 className="field-input"
                 value={values.dnspod.domain}
@@ -167,7 +169,7 @@ export function NetworkForm({
               {errors['dnspod.domain'] ? <span className="field-error">{errors['dnspod.domain']}</span> : null}
             </label>
             <label className="field">
-              <span className="field-label">Record</span>
+              <span className="field-label">{t('networkForm.record')}</span>
               <input
                 className="field-input"
                 value={values.dnspod.record}
@@ -183,7 +185,7 @@ export function NetworkForm({
               {errors['dnspod.record'] ? <span className="field-error">{errors['dnspod.record']}</span> : null}
             </label>
             <label className="field">
-              <span className="field-label">DNSPod ID</span>
+              <span className="field-label">{t('networkForm.dnspodId')}</span>
               <input
                 className="field-input"
                 value={values.dnspod.id}
@@ -199,7 +201,7 @@ export function NetworkForm({
               {errors['dnspod.id'] ? <span className="field-error">{errors['dnspod.id']}</span> : null}
             </label>
             <label className="field">
-              <span className="field-label">DNSPod Token</span>
+              <span className="field-label">{t('networkForm.dnspodToken')}</span>
               <input
                 className="field-input"
                 value={values.dnspod.token}
@@ -219,14 +221,14 @@ export function NetworkForm({
 
         {showDDNSSettings && compatibilityMode ? (
           <label className="field">
-            <span className="field-label">Raw DDNS Config JSON</span>
+            <span className="field-label">{t('networkForm.rawJson')}</span>
             <textarea
               className="field-textarea mono"
               value={rawConfig}
               onChange={(event) => setRawConfig(event.target.value)}
               disabled={submitting}
             />
-            <span className="field-help">Saving still goes through the backend provider validation.</span>
+            <span className="field-help">{t('networkForm.rawJsonHelp')}</span>
             {errors.rawConfig ? <span className="field-error">{errors.rawConfig}</span> : null}
           </label>
         ) : null}
@@ -239,7 +241,7 @@ export function NetworkForm({
           {submitting ? submittingLabel : submitLabel}
         </button>
         <Link className="button button-secondary" to={cancelTo}>
-          Cancel
+          {t('common.cancel')}
         </Link>
       </div>
     </form>
@@ -266,11 +268,16 @@ function buildPayload(values: NetworkFormValues, rawConfig: string, compatibilit
   }
 }
 
-function validateForm(values: NetworkFormValues, rawConfig: string, compatibilityMode: boolean): FieldErrors {
+function validateForm(
+  values: NetworkFormValues,
+  rawConfig: string,
+  compatibilityMode: boolean,
+  t: Translator,
+): FieldErrors {
   const errors: FieldErrors = {}
 
   if (values.name.trim() === '') {
-    errors.name = 'Name is required.'
+    errors.name = t('networkForm.nameRequired')
   }
 
   if (!values.ddnsEnabled) {
@@ -278,27 +285,27 @@ function validateForm(values: NetworkFormValues, rawConfig: string, compatibilit
   }
 
   if (values.ddnsType === '') {
-    errors.ddnsType = 'Choose a DDNS provider when DDNS is enabled.'
+    errors.ddnsType = t('networkForm.ddnsProviderRequired')
   }
 
   if (values.ddnsType === 'dnspod') {
     if (compatibilityMode) {
-      const rawError = validateRawJSONConfig(rawConfig)
-      if (rawError) {
-        errors.rawConfig = rawError
+      const rawErrorKey = validateRawJSONConfig(rawConfig)
+      if (rawErrorKey) {
+        errors.rawConfig = t(rawErrorKey)
       }
     } else {
       if (values.dnspod.domain.trim() === '') {
-        errors['dnspod.domain'] = 'Domain is required.'
+        errors['dnspod.domain'] = t('networkForm.domainRequired')
       }
       if (values.dnspod.record.trim() === '') {
-        errors['dnspod.record'] = 'Record is required.'
+        errors['dnspod.record'] = t('networkForm.recordRequired')
       }
       if (values.dnspod.id.trim() === '') {
-        errors['dnspod.id'] = 'DNSPod ID is required.'
+        errors['dnspod.id'] = t('networkForm.dnspodIdRequired')
       }
       if (values.dnspod.token.trim() === '') {
-        errors['dnspod.token'] = 'DNSPod token is required.'
+        errors['dnspod.token'] = t('networkForm.dnspodTokenRequired')
       }
     }
   }
