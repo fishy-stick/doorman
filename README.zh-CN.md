@@ -1,5 +1,8 @@
 # Doorman
 
+[![Version](https://img.shields.io/github/v/tag/fishy-stick/doorman?sort=semver&filter=%21%2A-%2A&label=version)](https://github.com/fishy-stick/doorman/tags)
+[![Docker Publish](https://github.com/fishy-stick/doorman/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fishy-stick/doorman/actions/workflows/docker-publish.yml)
+
 语言： [English](README.md) | 简体中文
 
 Doorman 是一个面向家庭动态公网 IP 场景的轻量级 DDNS 服务端。它通常部署在家庭之外的公网服务器上，接收来自家庭内网客户端的 HTTP 请求，并在识别到公网 IP 变化时触发 DDNS 更新。

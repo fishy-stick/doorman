@@ -1,5 +1,8 @@
 # Doorman
 
+[![Version](https://img.shields.io/github/v/tag/fishy-stick/doorman?sort=semver&filter=%21%2A-%2A&label=version)](https://github.com/fishy-stick/doorman/tags)
+[![Docker Publish](https://github.com/fishy-stick/doorman/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fishy-stick/doorman/actions/workflows/docker-publish.yml)
+
 Language: English | [简体中文](README.zh-CN.md)
 
 Doorman is a lightweight DDNS server for home networks with dynamic public IPs. It is typically deployed on a public server outside the home network, receives HTTP requests from clients inside the home network, and triggers DDNS updates when the observed public IP changes.
