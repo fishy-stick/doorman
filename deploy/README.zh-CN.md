@@ -2,13 +2,25 @@
 
 语言： [English](README.md) | 简体中文
 
-本文档覆盖 Doorman 的三种部署方式：
+本文档覆盖 Doorman 的生产部署方式：
 
-- Docker
+- Docker 部署，推荐优先使用
 - 直接运行二进制
 - `systemd` 托管
 
-Doorman 的生产形态是一个嵌入前端资源的 Go 二进制，运行时依赖 `config.yaml` 和 SQLite 数据文件。推荐将它部署在家庭之外、具备公网可达性的服务器上，例如 VPS、云主机或其他长期在线的公网节点。
+Doorman 推荐部署在家庭网络之外、具备公网可达性的服务器上，例如 VPS、云主机或其他长期在线的公网节点。生产形态是一个嵌入前端资源的 Go 二进制，运行时依赖 `config.yaml` 和 SQLite 数据文件。
+
+## 部署前准备
+
+部署前先确认：
+
+- 服务器可以被目标家庭网络访问
+- 已确定外部访问地址，并准备写入 `server.public_url`
+- 已确定是否位于可信反向代理后面
+- SQLite 数据文件所在目录会被持久化
+- 防火墙或安全组已放行对外服务端口，默认是 `8080`
+
+`server.public_url` 会影响后台生成的 `curl` 和 `crontab` 命令。正式部署时不要保留默认的 `http://your-server:8080`。
 
 ## Docker 部署
 
@@ -26,7 +38,9 @@ docker build -t doorman .
 - 将前端产物嵌入 Go 二进制
 - 在运行镜像中写入默认 `/app/config.yaml`
 
-### 默认运行方式
+### 快速试跑
+
+如果只是先确认服务可以启动，可以使用镜像内置配置：
 
 ```bash
 docker run -d \
@@ -55,9 +69,19 @@ server:
 
 只要 `/app/data` 做了持久化挂载，容器重建后数据库仍会保留。
 
-### 使用自定义配置
+### 正式部署配置
 
-如果你需要修改监听端口、数据库路径、`trust_proxy` 或生成客户端命令时使用的访问地址，可以挂载自己的配置文件：
+正式部署建议准备自己的 `config.yaml`：
+
+```yaml
+server:
+  port: 8080
+  trust_proxy: true
+  db: "/app/data/doorman.db"
+  public_url: "https://your-domain.example"
+```
+
+然后挂载配置文件和数据卷：
 
 ```bash
 docker run -d \
@@ -92,10 +116,13 @@ http://<your-host>:8080/admin
 2. 能使用日志中的初始密码登录
 3. 创建一个网络并执行一次 `/knock`
 4. 确认 `/app/data/doorman.db` 已生成且历史记录可见
+5. 确认后台生成的客户端命令使用了正确的 `server.public_url`
 
 ## 直接运行二进制
 
 ### 构建
+
+构建机需要 Go `1.26+`、Node.js `22+` 和 `pnpm`。
 
 先构建前端，再编译嵌入式二进制：
 
@@ -142,6 +169,19 @@ server:
 
 ## 使用 systemd 托管
 
+约定目录结构：
+
+- `/opt/doorman/doorman`
+- `/opt/doorman/config.yaml`
+- `/var/lib/doorman/doorman.db`
+
+推荐做法：
+
+- 为服务创建专用用户，例如 `doorman`
+- 使用绝对数据库路径
+- 确保 `WorkingDirectory` 指向包含 `config.yaml` 的目录
+- 确保数据库目录对服务用户可写
+
 下面是一个可直接调整的 `systemd` unit 示例：
 
 ```ini
@@ -163,19 +203,6 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-约定目录结构：
-
-- `/opt/doorman/doorman`
-- `/opt/doorman/config.yaml`
-- `/var/lib/doorman/doorman.db`
-
-推荐做法：
-
-- 为服务创建专用用户，例如 `doorman`
-- 使用绝对数据库路径
-- 确保 `WorkingDirectory` 指向包含 `config.yaml` 的目录
-- 确保数据库目录对服务用户可写
-
 常用命令：
 
 ```bash
@@ -189,7 +216,7 @@ sudo journalctl -u doorman -f
 
 ## 反向代理与 trust_proxy
 
-如果 Doorman 部署在 Nginx、Caddy 或其他反向代理后面，并且这些代理由你自己控制，可以保留：
+如果 Doorman 部署在 Nginx、Caddy 或其他由你自己控制的反向代理后面，可以保留：
 
 ```yaml
 server:
@@ -211,9 +238,13 @@ server:
 
 否则攻击者可能通过伪造请求头影响公网 IP 识别结果。
 
+如果 `server.public_url` 带路径前缀，例如 `https://www.abc.com/prefix`，需要让反向代理把 `/prefix/knock` 转发到 Doorman 的 `/knock` 接口。
+
 ## 升级与变更注意事项
 
 - Docker 升级时，保留数据卷或 bind mount 中的数据库文件
+- 二进制升级时，替换程序文件即可，保留原有 `config.yaml` 和 SQLite 数据库
+- 修改 `server.public_url` 后，后台新生成的客户端命令会变化，已经复制到客户端的旧命令需要手动更新
 - 重新生成网络 token 后，旧客户端命令会立即失效
 - 管理员会话保存在内存中，服务重启后需要重新登录
 - 修改 `trust_proxy` 前，先确认真实网络拓扑和代理链
