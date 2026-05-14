@@ -43,6 +43,7 @@ server:
   port: 8080
   trust_proxy: true
   db: "/app/data/doorman.db"
+  public_url: "http://your-server:8080"
 ```
 
 默认约束：
@@ -56,7 +57,7 @@ server:
 
 ### 使用自定义配置
 
-如果你需要修改监听端口、数据库路径或 `trust_proxy`，可以挂载自己的配置文件：
+如果你需要修改监听端口、数据库路径、`trust_proxy` 或生成客户端命令时使用的访问地址，可以挂载自己的配置文件：
 
 ```bash
 docker run -d \
@@ -116,7 +117,10 @@ server:
   port: 8080
   trust_proxy: true
   db: "/var/lib/doorman/doorman.db"
+  public_url: "https://your-domain.example"
 ```
+
+`server.public_url` 是用于生成 `curl` 和 `crontab` 命令的外部访问地址。它可以包含路径前缀，例如 `https://www.abc.com/prefix`；这种情况下需要让反向代理把 `/prefix/knock` 转发到 Doorman 的 `/knock` 接口。
 
 程序固定读取当前工作目录下的 `config.yaml`。如果你直接执行：
 

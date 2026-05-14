@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"doorman/internal/auth"
 	"doorman/internal/i18n"
@@ -14,13 +16,18 @@ import (
 )
 
 type AdminHandler struct {
-	store *store.Store
-	sm    *auth.SessionManager
+	store     *store.Store
+	sm        *auth.SessionManager
+	publicURL string
 }
 
 // NewAdminHandler builds the admin API handler set.
-func NewAdminHandler(s *store.Store, sm *auth.SessionManager) *AdminHandler {
-	return &AdminHandler{store: s, sm: sm}
+func NewAdminHandler(s *store.Store, sm *auth.SessionManager, publicURL ...string) *AdminHandler {
+	baseURL := "http://your-server:8080"
+	if len(publicURL) > 0 && strings.TrimSpace(publicURL[0]) != "" {
+		baseURL = strings.TrimRight(strings.TrimSpace(publicURL[0]), "/")
+	}
+	return &AdminHandler{store: s, sm: sm, publicURL: baseURL}
 }
 
 func (h *AdminHandler) Login(c *gin.Context) {
@@ -141,8 +148,9 @@ func (h *AdminHandler) respondNetworkDetail(c *gin.Context, status int, network 
 		ddnsStatus = latestKnock.DDNSStatus
 	}
 
-	curlCmd := fmt.Sprintf(`curl -H "Authorization: Bearer %s" http://your-server:8080/knock`, network.Token)
-	crontabCmd := fmt.Sprintf(`*/5 * * * * curl -s -H "Authorization: Bearer %s" http://your-server:8080/knock > /dev/null 2>&1`, network.Token)
+	knockURL := h.knockURL()
+	curlCmd := fmt.Sprintf(`curl -H "Authorization: Bearer %s" %s`, network.Token, knockURL)
+	crontabCmd := fmt.Sprintf(`*/5 * * * * curl -s -H "Authorization: Bearer %s" %s > /dev/null 2>&1`, network.Token, knockURL)
 
 	c.JSON(status, gin.H{
 		"id":           network.ID,
@@ -156,10 +164,21 @@ func (h *AdminHandler) respondNetworkDetail(c *gin.Context, status int, network 
 		"last_knock":   lastKnock,
 		"ddns_status":  ddnsStatus,
 		"commands": gin.H{
-			"curl":    curlCmd,
-			"crontab": crontabCmd,
+			"public_url": h.publicURL,
+			"curl":       curlCmd,
+			"crontab":    crontabCmd,
 		},
 	})
+}
+
+func (h *AdminHandler) knockURL() string {
+	parsed, err := url.Parse(h.publicURL)
+	if err != nil {
+		return strings.TrimRight(h.publicURL, "/") + "/knock"
+	}
+
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/knock"
+	return parsed.String()
 }
 
 func (h *AdminHandler) CreateNetwork(c *gin.Context) {

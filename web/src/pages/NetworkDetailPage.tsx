@@ -220,8 +220,9 @@ export function NetworkDetailPage() {
         </div>
 
         <div className="form-message form-message-info">
-          <strong>{t('networkDetail.hostPlaceholderTitle')}</strong>
-          <p>{t('networkDetail.hostPlaceholderMessage')}</p>
+          <strong>{t('networkDetail.publicUrlTitle')}</strong>
+          <p>{t('networkDetail.publicUrlMessage')}</p>
+          <p className="mono">{network.commands.public_url}</p>
         </div>
 
         <div className="command-grid">

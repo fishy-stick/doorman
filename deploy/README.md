@@ -43,6 +43,7 @@ server:
   port: 8080
   trust_proxy: true
   db: "/app/data/doorman.db"
+  public_url: "http://your-server:8080"
 ```
 
 Default runtime properties:
@@ -56,7 +57,7 @@ As long as `/app/data` is persisted, the database survives container recreation.
 
 ### Custom Configuration
 
-If you need to change the listening port, database path, or `trust_proxy`, mount your own configuration file:
+If you need to change the listening port, database path, `trust_proxy`, or the URL used in generated client commands, mount your own configuration file:
 
 ```bash
 docker run -d \
@@ -116,7 +117,10 @@ server:
   port: 8080
   trust_proxy: true
   db: "/var/lib/doorman/doorman.db"
+  public_url: "https://your-domain.example"
 ```
+
+`server.public_url` is the external service URL used in generated `curl` and `crontab` commands. It may include a path prefix, such as `https://www.abc.com/prefix`; in that case, your reverse proxy must forward `/prefix/knock` to Doorman's `/knock` endpoint.
 
 The program always reads `config.yaml` from the current working directory. If you launch it with:
 

@@ -40,7 +40,7 @@ func main() {
 	r := gin.Default()
 
 	knockHandler := handler.NewKnockHandler(s, cfg.Server.TrustProxyEnabled())
-	adminHandler := handler.NewAdminHandler(s, sm)
+	adminHandler := handler.NewAdminHandler(s, sm, cfg.Server.PublicURL)
 
 	r.GET("/knock", auth.KnockAuth(s), knockHandler.Handle)
 

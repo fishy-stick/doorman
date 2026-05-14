@@ -33,7 +33,7 @@ RUN apt-get update \
 COPY --from=go-builder /out/doorman /usr/local/bin/doorman
 
 RUN mkdir -p /app/data \
-    && printf 'server:\n  port: 8080\n  trust_proxy: true\n  db: "/app/data/doorman.db"\n' > /app/config.yaml \
+    && printf 'server:\n  port: 8080\n  trust_proxy: true\n  db: "/app/data/doorman.db"\n  public_url: "http://your-server:8080"\n' > /app/config.yaml \
     && chown -R nobody:nogroup /app
 
 USER nobody:nogroup

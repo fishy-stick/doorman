@@ -23,6 +23,7 @@ export type NetworkDetail = {
   last_knock: string | null
   ddns_status: string | null
   commands: {
+    public_url: string
     curl: string
     crontab: string
   }

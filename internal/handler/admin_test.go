@@ -453,10 +453,49 @@ func TestRegenerateNetworkTokenReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestGetNetworkGeneratesCommandsWithConfiguredPublicURL(t *testing.T) {
+	t.Parallel()
+
+	s := newTestStore(t)
+	network := &store.Network{
+		Name:       "home",
+		Token:      "token-1",
+		DDNSConfig: "{}",
+	}
+	if err := s.CreateNetwork(network); err != nil {
+		t.Fatalf("CreateNetwork(seed) error = %v", err)
+	}
+
+	h := NewAdminHandler(s, auth.NewSessionManager(), "https://www.abc.com/prefix")
+	router := gin.New()
+	router.GET("/admin/api/networks/:id", h.GetNetwork)
+
+	resp := performRequest(t, router, http.MethodGet, "/admin/api/networks/1", "", "127.0.0.1:1234", nil)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body = %s", resp.Code, http.StatusOK, resp.Body.String())
+	}
+
+	var body networkDetailResponse
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+
+	if body.Commands.PublicURL != "https://www.abc.com/prefix" {
+		t.Fatalf("public_url = %q, want %q", body.Commands.PublicURL, "https://www.abc.com/prefix")
+	}
+	if body.Commands.Curl != `curl -H "Authorization: Bearer token-1" https://www.abc.com/prefix/knock` {
+		t.Fatalf("curl = %q, want configured public URL", body.Commands.Curl)
+	}
+	if body.Commands.Crontab != `*/5 * * * * curl -s -H "Authorization: Bearer token-1" https://www.abc.com/prefix/knock > /dev/null 2>&1` {
+		t.Fatalf("crontab = %q, want configured public URL", body.Commands.Crontab)
+	}
+}
+
 type networkDetailResponse struct {
 	Token    string `json:"token"`
 	Commands struct {
-		Curl    string `json:"curl"`
-		Crontab string `json:"crontab"`
+		PublicURL string `json:"public_url"`
+		Curl      string `json:"curl"`
+		Crontab   string `json:"crontab"`
 	} `json:"commands"`
 }

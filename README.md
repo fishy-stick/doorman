@@ -89,6 +89,7 @@ server:
   port: 8080
   trust_proxy: true
   db: "doorman.db"
+  public_url: "http://your-server:8080"
 ```
 
 Field reference:
@@ -98,6 +99,7 @@ Field reference:
 | `server.port` | Listening port. Default: `:8080`. You can write `8080` or `:8080`; the program normalizes it automatically. |
 | `server.trust_proxy` | Whether to trust proxy headers. Default: `true`. |
 | `server.db` | SQLite database path. Default: `doorman.db`. |
+| `server.public_url` | External service URL used to generate client commands. Default: `http://your-server:8080`. It may include a path prefix, such as `https://www.abc.com/prefix`. Query strings and fragments are not supported. |
 
 ## Typical Flow
 
@@ -117,6 +119,8 @@ Clients only need to send a standard HTTP request:
 ```bash
 curl -H "Authorization: Bearer your-token" http://your-server:8080/knock
 ```
+
+The admin UI generates this command from `server.public_url`. If you set `server.public_url` to `https://www.abc.com/prefix`, the generated target is `https://www.abc.com/prefix/knock`; configure your reverse proxy to forward that path to Doorman's `/knock` endpoint.
 
 The response includes the detected IP, whether it changed, and whether DDNS was updated during that request.
 

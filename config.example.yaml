@@ -2,3 +2,4 @@ server:
   port: 8080
   trust_proxy: true
   db: "doorman.db"
+  public_url: "http://your-server:8080"

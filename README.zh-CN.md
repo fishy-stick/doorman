@@ -89,6 +89,7 @@ server:
   port: 8080
   trust_proxy: true
   db: "doorman.db"
+  public_url: "http://your-server:8080"
 ```
 
 字段说明：
@@ -98,6 +99,7 @@ server:
 | `server.port` | 监听端口，默认 `:8080`。可写 `8080` 或 `:8080`，程序会自动归一化。 |
 | `server.trust_proxy` | 是否信任代理头，默认 `true`。 |
 | `server.db` | SQLite 数据库文件路径，默认 `doorman.db`。 |
+| `server.public_url` | 用于生成客户端命令的外部访问地址，默认 `http://your-server:8080`。可以带路径前缀，例如 `https://www.abc.com/prefix`。不支持 query 和 fragment。 |
 
 ## 使用流程
 
@@ -117,6 +119,8 @@ server:
 ```bash
 curl -H "Authorization: Bearer your-token" http://your-server:8080/knock
 ```
+
+管理后台会根据 `server.public_url` 生成这条命令。如果配置为 `https://www.abc.com/prefix`，生成的目标地址是 `https://www.abc.com/prefix/knock`；此时需要让反向代理把该路径转发到 Doorman 的 `/knock` 接口。
 
 返回结果会包含当前识别到的 IP、是否发生变化，以及本次是否执行了 DDNS 更新。
 
