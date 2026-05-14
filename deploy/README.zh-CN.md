@@ -4,9 +4,10 @@
 
 本文档覆盖 Doorman 的生产部署方式：
 
-- Docker 部署，推荐优先使用
-- 直接运行二进制
+- GHCR 容器镜像，推荐优先使用
+- GitHub Release 二进制归档，不使用容器时推荐优先使用
 - `systemd` 托管
+- 源码构建，用于开发、调试或兜底场景
 
 Doorman 推荐部署在家庭网络之外、具备公网可达性的服务器上，例如 VPS、云主机或其他长期在线的公网节点。生产形态是一个嵌入前端资源的 Go 二进制，运行时依赖 `config.yaml` 和 SQLite 数据文件。
 
@@ -22,21 +23,15 @@ Doorman 推荐部署在家庭网络之外、具备公网可达性的服务器上
 
 `server.public_url` 会影响后台生成的 `curl` 和 `crontab` 命令。正式部署时不要保留默认的 `http://your-server:8080`。
 
-## Docker 部署
+## GHCR 容器部署
 
-### 构建镜像
-
-在仓库根目录执行：
+优先使用 GitHub Container Registry 上的预构建镜像：
 
 ```bash
-docker build -t doorman .
+docker pull ghcr.io/fishy-stick/doorman:<version>
 ```
 
-镜像构建会：
-
-- 使用 `web/` 构建前端静态资源
-- 将前端产物嵌入 Go 二进制
-- 在运行镜像中写入默认 `/app/config.yaml`
+将 `<version>` 替换成已发布的版本标签，例如 `v0.2-alpha`。稳定版也会发布 `latest` 和语义化别名；预发布版本应使用精确标签。
 
 ### 快速试跑
 
@@ -47,7 +42,7 @@ docker run -d \
   --name doorman \
   -p 8080:8080 \
   -v doorman-data:/app/data \
-  doorman
+  ghcr.io/fishy-stick/doorman:<version>
 ```
 
 镜像内默认配置等价于：
@@ -89,7 +84,7 @@ docker run -d \
   -p 8080:8080 \
   -v /path/to/config.yaml:/app/config.yaml:ro \
   -v doorman-data:/app/data \
-  doorman
+  ghcr.io/fishy-stick/doorman:<version>
 ```
 
 如果你把 `server.db` 改到别的位置，记得同步挂载对应目录。
@@ -118,26 +113,60 @@ http://<your-host>:8080/admin
 4. 确认 `/app/data/doorman.db` 已生成且历史记录可见
 5. 确认后台生成的客户端命令使用了正确的 `server.public_url`
 
-## 直接运行二进制
+## Release 二进制部署
 
-### 构建
+不使用容器时，推荐使用 GitHub Release 二进制归档。Release 产物覆盖 Linux `amd64` 和 `arm64`，并且已经内嵌 Web 管理界面。
 
-构建机需要 Go `1.26+`、Node.js `22+` 和 `pnpm`。
+Release 资产文件名是：
 
-先构建前端，再编译嵌入式二进制：
+- `doorman_${VERSION}_linux_amd64.tar.gz`
+- `doorman_${VERSION}_linux_arm64.tar.gz`
+- `SHA256SUMS`
+
+### 下载并校验
+
+先设置版本号和 CPU 架构，再下载 release 归档和校验文件：
 
 ```bash
-cd web
-pnpm install
-pnpm run build:embed
-cd ..
+VERSION=v0.2-alpha
+ARCH=amd64
 
-go build -tags embedweb -o doorman ./cmd/doorman/
+curl -LO "https://github.com/fishy-stick/doorman/releases/download/${VERSION}/doorman_${VERSION}_linux_${ARCH}.tar.gz"
+curl -LO "https://github.com/fishy-stick/doorman/releases/download/${VERSION}/SHA256SUMS"
+sha256sum --ignore-missing -c SHA256SUMS
 ```
 
-### 准备配置
+ARM64 Linux 主机使用 `ARCH=arm64`。
 
-在二进制工作目录准备 `config.yaml`：
+解压归档：
+
+```bash
+tar -xzf "doorman_${VERSION}_linux_${ARCH}.tar.gz"
+cd "doorman_${VERSION}_linux_${ARCH}"
+```
+
+解压后的目录包含：
+
+- `doorman`
+- `config.example.yaml`
+
+### 准备文件和配置
+
+典型生产目录结构：
+
+- `/opt/doorman/doorman`
+- `/opt/doorman/config.yaml`
+- `/var/lib/doorman/doorman.db`
+
+安装二进制和示例配置：
+
+```bash
+sudo install -d /opt/doorman /var/lib/doorman
+sudo install -m 0755 doorman /opt/doorman/doorman
+sudo install -m 0644 config.example.yaml /opt/doorman/config.yaml
+```
+
+编辑 `/opt/doorman/config.yaml`：
 
 ```yaml
 server:
@@ -149,40 +178,37 @@ server:
 
 `server.public_url` 是用于生成 `curl` 和 `crontab` 命令的外部访问地址。它可以包含路径前缀，例如 `https://www.abc.com/prefix`；这种情况下需要让反向代理把 `/prefix/knock` 转发到 Doorman 的 `/knock` 接口。
 
-程序固定读取当前工作目录下的 `config.yaml`。如果你直接执行：
+程序固定读取当前工作目录下的 `config.yaml`。如果 `server.db` 使用相对路径，例如 `doorman.db`，它也会相对于当前工作目录解析。生产环境更建议写绝对路径。
+
+### 直接启动
+
+直接在 shell 中运行时，需要从包含 `config.yaml` 的目录启动：
 
 ```bash
+cd /opt/doorman
 ./doorman
 ```
 
-那么当前 shell 所在目录必须包含 `config.yaml`。
-
-如果 `server.db` 使用相对路径，例如 `doorman.db`，它也会相对于当前工作目录解析。生产环境更建议写绝对路径。
-
-### 启动
-
-```bash
-./doorman
-```
+确保运行 `./doorman` 的用户可以写入配置中的数据库目录，例如 `/var/lib/doorman`。
 
 首次启动后查看标准输出日志，获取管理员初始密码。
 
 ## 使用 systemd 托管
 
-约定目录结构：
+长期运行的二进制部署建议使用专用服务用户：
+
+```bash
+sudo useradd --system --home /opt/doorman --shell /usr/sbin/nologin doorman
+sudo chown -R doorman:doorman /var/lib/doorman
+```
+
+确认文件位于以下目录：
 
 - `/opt/doorman/doorman`
 - `/opt/doorman/config.yaml`
 - `/var/lib/doorman/doorman.db`
 
-推荐做法：
-
-- 为服务创建专用用户，例如 `doorman`
-- 使用绝对数据库路径
-- 确保 `WorkingDirectory` 指向包含 `config.yaml` 的目录
-- 确保数据库目录对服务用户可写
-
-下面是一个可直接调整的 `systemd` unit 示例：
+使用下面的 `systemd` unit：
 
 ```ini
 [Unit]
@@ -214,6 +240,31 @@ sudo journalctl -u doorman -f
 
 首次启动后，从 `journalctl` 中读取管理员初始密码。
 
+## 从源码构建
+
+源码构建适用于测试本地改动、调试构建，或目标环境没有合适 release 产物的情况。常规生产部署优先使用 GHCR 镜像或 GitHub Release 二进制。
+
+构建机需要 Go `1.26+`、Node.js `22+` 和 `pnpm`。
+
+先构建前端，再编译嵌入式二进制：
+
+```bash
+cd web
+pnpm install
+pnpm run build:embed
+cd ..
+
+go build -tags embedweb -o doorman ./cmd/doorman/
+```
+
+也可以在仓库根目录构建本地镜像：
+
+```bash
+docker build -t doorman:local .
+```
+
+源码构建产物仍使用上文相同的 `config.yaml`、数据持久化和 `server.public_url` 规则。
+
 ## 反向代理与 trust_proxy
 
 如果 Doorman 部署在 Nginx、Caddy 或其他由你自己控制的反向代理后面，可以保留：
@@ -242,8 +293,9 @@ server:
 
 ## 升级与变更注意事项
 
-- Docker 升级时，保留数据卷或 bind mount 中的数据库文件
-- 二进制升级时，替换程序文件即可，保留原有 `config.yaml` 和 SQLite 数据库
+- GHCR 部署升级时，拉取新镜像标签并重建容器，同时保留原有数据卷或 bind mount
+- Release 二进制升级时，替换 `/opt/doorman/doorman`，保留原有 `config.yaml` 和 SQLite 数据库
+- 生产部署需要可重复回滚时建议固定具体版本标签；只有明确希望跟随最新稳定版时才使用 `latest`
 - 修改 `server.public_url` 后，后台新生成的客户端命令会变化，已经复制到客户端的旧命令需要手动更新
 - 重新生成网络 token 后，旧客户端命令会立即失效
 - 管理员会话保存在内存中，服务重启后需要重新登录

@@ -30,20 +30,20 @@ The project includes a web admin UI and an API. In production it can run as a si
 
 ## Deployment Options
 
-Doorman needs to be deployed on a public server outside the home network. Docker deployment is recommended; direct binary execution and `systemd` service management are also supported.
+Doorman needs to be deployed on a public server outside the home network. The recommended path is the prebuilt GHCR image. If you do not want to run containers, use the GitHub Release binary archives. Build from source only for development, debugging, or fallback cases where no release artifact fits your target.
 
 For complete deployment instructions, see [deploy/README.md](deploy/README.md).
 
 ## 5-Minute Quick Deploy
 
-The shortest trial path is to run Doorman with Docker on a public server.
+The shortest trial path is to run the prebuilt GHCR image on a public server. Replace `<version>` with a released tag such as `v0.2-alpha`. Stable releases also publish `latest`; prereleases should use their exact tag.
 
-### 1. Build the Image
+### 1. Pull the Image
 
-Run this from the repository root:
+Pull the image from GitHub Container Registry:
 
 ```bash
-docker build -t doorman .
+docker pull ghcr.io/fishy-stick/doorman:<version>
 ```
 
 ### 2. Start the Service
@@ -55,7 +55,7 @@ docker run -d \
   --name doorman \
   -p 8080:8080 \
   -v doorman-data:/app/data \
-  doorman
+  ghcr.io/fishy-stick/doorman:<version>
 ```
 
 For a real deployment, mount your own configuration file and set `server.public_url` to the real external URL:
@@ -74,7 +74,7 @@ docker run -d \
   -p 8080:8080 \
   -v /path/to/config.yaml:/app/config.yaml:ro \
   -v doorman-data:/app/data \
-  doorman
+  ghcr.io/fishy-stick/doorman:<version>
 ```
 
 `server.public_url` is used to generate client `curl` and `crontab` commands. The default value, `http://your-server:8080`, is only suitable for a trial run and should be changed before real use.
@@ -204,9 +204,11 @@ Notes:
 - In development, the admin UI is served by Vite while the backend handles only `/admin/api` and `/knock`
 - The initial admin password is printed to the server logs on first startup
 
-### Production Build
+### Build From Source
 
-In production, build the frontend assets first and then embed them into the Go binary:
+For production deployments, prefer the GHCR image or a GitHub Release binary. Build from source when you need to test local changes, debug the build, or target an environment not covered by the release artifacts.
+
+Build the frontend assets first and then embed them into the Go binary:
 
 ```bash
 cd web
